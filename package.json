@@ -12,7 +12,9 @@
     "deploy:vercel": "vercel --prod",
     "deploy:wordpress": "./deployment/deploy-wp.sh",
     "deploy:all": "npm run deploy:wordpress && npm run deploy:vercel",
-    "export": "next export"
+    "export": "next export",
+    "sync:backend": "./sync-backend.sh",
+    "watch:backend": "./watch-backend.sh"
   },
   "dependencies": {
     "next": "^14.2.0",

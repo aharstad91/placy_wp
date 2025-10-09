@@ -5,6 +5,13 @@
  * 
  * @package Placy
  * @version 1.0.0
+ * 
+ * 🔄 SYNC TO WORDPRESS:
+ * This is the source file under version control.
+ * After editing, sync to WordPress with:
+ *   npm run sync:backend
+ * or for auto-sync while developing:
+ *   npm run watch:backend
  */
 
 // Theme setup
