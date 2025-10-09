@@ -136,3 +136,112 @@ export const GET_SITE_INFO = gql`
     }
   }
 `
+
+// POI Fragment - Mapbox-ready
+export const POI_FIELDS = gql`
+  fragment POIFields on Poi {
+    id
+    title
+    slug
+    poiFields {
+      poiDescription
+      poiCategory
+      poiIcon
+      poiLatitude
+      poiLongitude
+    }
+  }
+`
+
+// Get all POIs
+export const GET_POIS = gql`
+  ${POI_FIELDS}
+  query GetPOIs($first: Int = 100) {
+    pois(first: $first) {
+      nodes {
+        ...POIFields
+      }
+    }
+  }
+`
+
+// Get single POI by slug
+export const GET_POI_BY_SLUG = gql`
+  ${POI_FIELDS}
+  query GetPOIBySlug($slug: ID!) {
+    poi(id: $slug, idType: SLUG) {
+      ...POIFields
+    }
+  }
+`
+
+// Get all Stories
+export const GET_STORIES = gql`
+  query GetStories($first: Int = 10) {
+    stories(first: $first, where: { status: PUBLISH }) {
+      nodes {
+        id
+        title
+        slug
+        date
+      }
+    }
+  }
+`
+
+// Get single Story by slug with full data
+export const GET_STORY_BY_SLUG = gql`
+  ${POI_FIELDS}
+  query GetStoryBySlug($slug: ID!) {
+    story(id: $slug, idType: SLUG) {
+      id
+      title
+      slug
+      date
+      storyFields {
+        heroSection {
+          backgroundImage {
+            node {
+              sourceUrl
+              altText
+              mediaDetails {
+                width
+                height
+              }
+            }
+          }
+          title
+          description
+        }
+        storySections {
+          __typename
+          ... on StoryFieldsStorySectionsStorySectionLayout {
+            sectionId
+            sectionIcon
+            headerImage {
+              node {
+                sourceUrl
+                altText
+                mediaDetails {
+                  width
+                  height
+                }
+              }
+            }
+            title
+            description
+            mapType
+            showMap
+            relatedPois {
+              nodes {
+                ... on Poi {
+                  ...POIFields
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
