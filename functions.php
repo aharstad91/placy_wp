@@ -151,7 +151,7 @@ function placy_cpt($slug, $plural, $icon = 'admin-post') {
 
 // Register your Custom Post Types here
 function placy_register_cpts() {
-    // 1. KUNDER (Clients)
+    // 1. KUNDER (Clients) - Full ACF
     register_post_type('kunde', array(
         'labels' => array(
             'name' => 'Kunder',
@@ -168,14 +168,14 @@ function placy_register_cpts() {
         'show_in_graphql' => true,
         'graphql_single_name' => 'kunde',
         'graphql_plural_name' => 'kunder',
-        'supports' => array('title', 'editor', 'thumbnail', 'excerpt'),
+        'supports' => array('custom-fields'), // Kun ACF fields
         'has_archive' => true,
         'rewrite' => array('slug' => 'kunder'),
         'menu_icon' => 'dashicons-businessperson',
         'menu_position' => 5,
     ));
 
-    // 2. PROSJEKTER (Projects)
+    // 2. PROSJEKTER (Projects) - Full ACF
     register_post_type('prosjekt', array(
         'labels' => array(
             'name' => 'Prosjekter',
@@ -192,14 +192,14 @@ function placy_register_cpts() {
         'show_in_graphql' => true,
         'graphql_single_name' => 'prosjekt',
         'graphql_plural_name' => 'prosjekter',
-        'supports' => array('title', 'editor', 'thumbnail', 'excerpt'),
+        'supports' => array('custom-fields'), // Kun ACF fields
         'has_archive' => true,
         'rewrite' => array('slug' => 'prosjekter'),
         'menu_icon' => 'dashicons-portfolio',
         'menu_position' => 6,
     ));
 
-    // 3. STORIES
+    // 3. STORIES - Full ACF
     register_post_type('story', array(
         'labels' => array(
             'name' => 'Stories',
@@ -216,7 +216,7 @@ function placy_register_cpts() {
         'show_in_graphql' => true,
         'graphql_single_name' => 'story',
         'graphql_plural_name' => 'stories',
-        'supports' => array('title', 'editor', 'thumbnail', 'excerpt'),
+        'supports' => array('custom-fields'), // Kun ACF fields
         'has_archive' => true,
         'rewrite' => array('slug' => 'stories'),
         'menu_icon' => 'dashicons-media-document',
@@ -233,19 +233,41 @@ function placy_register_acf_fields() {
     if( !function_exists('acf_add_local_field_group') ) return;
 
     // ============================================
-    // KUNDE FIELDS
+    // KUNDE FIELDS - FULL ACF
     // ============================================
     acf_add_local_field_group(array(
         'key' => 'group_kunde',
         'title' => 'Kunde Informasjon',
         'fields' => array(
             array(
+                'key' => 'field_kunde_navn',
+                'label' => 'Kundenavn',
+                'name' => 'navn',
+                'type' => 'text',
+                'required' => 1,
+                'instructions' => 'Fyll inn kundens navn',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_kunde_beskrivelse',
+                'label' => 'Beskrivelse',
+                'name' => 'beskrivelse',
+                'type' => 'wysiwyg',
+                'required' => 0,
+                'tabs' => 'all',
+                'toolbar' => 'basic',
+                'media_upload' => 0,
+                'show_in_graphql' => 1,
+            ),
+            array(
                 'key' => 'field_kunde_logo',
                 'label' => 'Logo',
                 'name' => 'logo',
                 'type' => 'image',
+                'required' => 1,
                 'return_format' => 'array',
                 'preview_size' => 'medium',
+                'instructions' => 'Last opp kundens logo',
                 'show_in_graphql' => 1,
             ),
             array(
@@ -253,13 +275,25 @@ function placy_register_acf_fields() {
                 'label' => 'Website',
                 'name' => 'website',
                 'type' => 'url',
+                'instructions' => 'Kundens nettside URL',
                 'show_in_graphql' => 1,
             ),
             array(
                 'key' => 'field_kunde_industry',
                 'label' => 'Bransje',
-                'name' => 'industry',
-                'type' => 'text',
+                'name' => 'bransje',
+                'type' => 'select',
+                'choices' => array(
+                    'tech' => 'Teknologi',
+                    'retail' => 'Detaljhandel',
+                    'finance' => 'Finans',
+                    'healthcare' => 'Helse',
+                    'education' => 'Utdanning',
+                    'manufacturing' => 'Industri',
+                    'real_estate' => 'Eiendom',
+                    'other' => 'Annet',
+                ),
+                'allow_null' => 1,
                 'show_in_graphql' => 1,
             ),
             array(
@@ -268,6 +302,28 @@ function placy_register_acf_fields() {
                 'name' => 'brand_color',
                 'type' => 'color_picker',
                 'default_value' => '#000000',
+                'instructions' => 'Kundens primærfarge',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_kunde_kontaktperson',
+                'label' => 'Kontaktperson',
+                'name' => 'kontaktperson',
+                'type' => 'text',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_kunde_epost',
+                'label' => 'E-post',
+                'name' => 'epost',
+                'type' => 'email',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_kunde_telefon',
+                'label' => 'Telefon',
+                'name' => 'telefon',
+                'type' => 'text',
                 'show_in_graphql' => 1,
             ),
         ),
@@ -282,15 +338,39 @@ function placy_register_acf_fields() {
         ),
         'show_in_graphql' => 1,
         'graphql_field_name' => 'kundeFields',
+        'menu_order' => 0,
+        'position' => 'acf_after_title',
+        'label_placement' => 'top',
     ));
 
     // ============================================
-    // PROSJEKT FIELDS + RELASJON TIL KUNDE
+    // PROSJEKT FIELDS - FULL ACF + RELASJON TIL KUNDE
     // ============================================
     acf_add_local_field_group(array(
         'key' => 'group_prosjekt',
         'title' => 'Prosjekt Informasjon',
         'fields' => array(
+            array(
+                'key' => 'field_prosjekt_tittel',
+                'label' => 'Prosjekttittel',
+                'name' => 'tittel',
+                'type' => 'text',
+                'required' => 1,
+                'instructions' => 'Fyll inn prosjektets navn',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_prosjekt_beskrivelse',
+                'label' => 'Beskrivelse',
+                'name' => 'beskrivelse',
+                'type' => 'wysiwyg',
+                'required' => 0,
+                'tabs' => 'all',
+                'toolbar' => 'full',
+                'media_upload' => 1,
+                'instructions' => 'Beskriv prosjektet i detalj',
+                'show_in_graphql' => 1,
+            ),
             array(
                 'key' => 'field_prosjekt_kunde',
                 'label' => 'Kunde',
@@ -300,6 +380,17 @@ function placy_register_acf_fields() {
                 'required' => 1,
                 'post_type' => array('kunde'),
                 'return_format' => 'object',
+                'ui' => 1,
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_prosjekt_bilder',
+                'label' => 'Prosjektbilder',
+                'name' => 'bilder',
+                'type' => 'gallery',
+                'return_format' => 'array',
+                'preview_size' => 'medium',
+                'instructions' => 'Last opp bilder fra prosjektet',
                 'show_in_graphql' => 1,
             ),
             array(
@@ -326,17 +417,19 @@ function placy_register_acf_fields() {
                 'name' => 'status',
                 'type' => 'select',
                 'choices' => array(
+                    'planning' => 'Planlegging',
                     'active' => 'Aktiv',
                     'completed' => 'Fullført',
                     'on_hold' => 'På vent',
                     'archived' => 'Arkivert',
                 ),
-                'default_value' => 'active',
+                'default_value' => 'planning',
+                'required' => 1,
                 'show_in_graphql' => 1,
             ),
             array(
                 'key' => 'field_prosjekt_tech_stack',
-                'label' => 'Teknologi',
+                'label' => 'Teknologi Stack',
                 'name' => 'tech_stack',
                 'type' => 'checkbox',
                 'choices' => array(
@@ -346,7 +439,11 @@ function placy_register_acf_fields() {
                     'typescript' => 'TypeScript',
                     'tailwind' => 'Tailwind CSS',
                     'graphql' => 'GraphQL',
+                    'nodejs' => 'Node.js',
+                    'python' => 'Python',
+                    'docker' => 'Docker',
                 ),
+                'layout' => 'vertical',
                 'show_in_graphql' => 1,
             ),
             array(
@@ -354,6 +451,15 @@ function placy_register_acf_fields() {
                 'label' => 'Prosjekt URL',
                 'name' => 'project_url',
                 'type' => 'url',
+                'instructions' => 'Live URL til prosjektet',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_prosjekt_github',
+                'label' => 'GitHub Repository',
+                'name' => 'github_url',
+                'type' => 'url',
+                'instructions' => 'Link til GitHub repository',
                 'show_in_graphql' => 1,
             ),
         ),
@@ -368,15 +474,39 @@ function placy_register_acf_fields() {
         ),
         'show_in_graphql' => 1,
         'graphql_field_name' => 'prosjektFields',
+        'menu_order' => 0,
+        'position' => 'acf_after_title',
+        'label_placement' => 'top',
     ));
 
     // ============================================
-    // STORY FIELDS + RELASJON TIL PROSJEKT
+    // STORY FIELDS - FULL ACF + RELASJON TIL PROSJEKT
     // ============================================
     acf_add_local_field_group(array(
         'key' => 'group_story',
         'title' => 'Story Informasjon',
         'fields' => array(
+            array(
+                'key' => 'field_story_tittel',
+                'label' => 'Tittel',
+                'name' => 'tittel',
+                'type' => 'text',
+                'required' => 1,
+                'instructions' => 'Fyll inn story-tittelen',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_story_innhold',
+                'label' => 'Innhold',
+                'name' => 'innhold',
+                'type' => 'wysiwyg',
+                'required' => 1,
+                'tabs' => 'all',
+                'toolbar' => 'full',
+                'media_upload' => 1,
+                'instructions' => 'Skriv story-innholdet',
+                'show_in_graphql' => 1,
+            ),
             array(
                 'key' => 'field_story_prosjekt',
                 'label' => 'Prosjekt',
@@ -386,39 +516,45 @@ function placy_register_acf_fields() {
                 'required' => 1,
                 'post_type' => array('prosjekt'),
                 'return_format' => 'object',
+                'ui' => 1,
                 'show_in_graphql' => 1,
             ),
             array(
                 'key' => 'field_story_type',
-                'label' => 'Type',
+                'label' => 'Story Type',
                 'name' => 'story_type',
                 'type' => 'select',
                 'choices' => array(
-                    'update' => 'Oppdatering',
-                    'milestone' => 'Milepæl',
-                    'challenge' => 'Utfordring',
-                    'success' => 'Suksess',
-                    'insight' => 'Innsikt',
+                    'update' => '📝 Oppdatering',
+                    'milestone' => '🎯 Milepæl',
+                    'challenge' => '⚠️ Utfordring',
+                    'success' => '🎉 Suksess',
+                    'insight' => '💡 Innsikt',
+                    'announcement' => '📢 Kunngjøring',
                 ),
                 'default_value' => 'update',
+                'required' => 1,
                 'show_in_graphql' => 1,
             ),
             array(
                 'key' => 'field_story_date',
-                'label' => 'Dato',
+                'label' => 'Story Dato',
                 'name' => 'story_date',
                 'type' => 'date_picker',
                 'display_format' => 'd/m/Y',
                 'return_format' => 'Y-m-d',
+                'required' => 1,
+                'default_value' => date('Y-m-d'),
                 'show_in_graphql' => 1,
             ),
             array(
                 'key' => 'field_story_media',
-                'label' => 'Media (Bilder/Video)',
+                'label' => 'Bilder/Media',
                 'name' => 'media',
                 'type' => 'gallery',
                 'return_format' => 'array',
                 'preview_size' => 'medium',
+                'instructions' => 'Last opp bilder eller media relatert til storyen',
                 'show_in_graphql' => 1,
             ),
             array(
@@ -427,6 +563,25 @@ function placy_register_acf_fields() {
                 'name' => 'video_url',
                 'type' => 'url',
                 'instructions' => 'YouTube, Vimeo eller annen video URL',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_story_highlights',
+                'label' => 'Høydepunkter',
+                'name' => 'highlights',
+                'type' => 'repeater',
+                'layout' => 'table',
+                'button_label' => 'Legg til høydepunkt',
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_highlight_text',
+                        'label' => 'Tekst',
+                        'name' => 'text',
+                        'type' => 'text',
+                        'required' => 1,
+                        'show_in_graphql' => 1,
+                    ),
+                ),
                 'show_in_graphql' => 1,
             ),
         ),
@@ -441,6 +596,9 @@ function placy_register_acf_fields() {
         ),
         'show_in_graphql' => 1,
         'graphql_field_name' => 'storyFields',
+        'menu_order' => 0,
+        'position' => 'acf_after_title',
+        'label_placement' => 'top',
     ));
 }
 add_action('acf/init', 'placy_register_acf_fields');
@@ -453,7 +611,7 @@ add_action('acf/init', 'placy_register_acf_fields');
 function placy_prosjekt_columns($columns) {
     $new_columns = array();
     $new_columns['cb'] = $columns['cb'];
-    $new_columns['title'] = $columns['title'];
+    $new_columns['prosjekt_tittel'] = '📁 Prosjekttittel';
     $new_columns['kunde'] = '👤 Kunde';
     $new_columns['status'] = '📊 Status';
     $new_columns['tech'] = '⚙️ Tech Stack';
@@ -463,10 +621,15 @@ function placy_prosjekt_columns($columns) {
 add_filter('manage_prosjekt_posts_columns', 'placy_prosjekt_columns');
 
 function placy_prosjekt_column_content($column, $post_id) {
+    if ($column === 'prosjekt_tittel') {
+        $tittel = get_field('tittel', $post_id);
+        echo $tittel ? '<strong><a href="' . get_edit_post_link($post_id) . '">' . esc_html($tittel) . '</a></strong>' : '<span style="color: #999;">Uten tittel</span>';
+    }
     if ($column === 'kunde') {
         $kunde = get_field('kunde', $post_id);
         if ($kunde) {
-            echo '<a href="' . get_edit_post_link($kunde->ID) . '"><strong>' . esc_html($kunde->post_title) . '</strong></a>';
+            $kunde_navn = get_field('navn', $kunde->ID);
+            echo '<a href="' . get_edit_post_link($kunde->ID) . '"><strong>' . esc_html($kunde_navn) . '</strong></a>';
         } else {
             echo '<span style="color: #999;">Ingen kunde</span>';
         }
@@ -474,6 +637,7 @@ function placy_prosjekt_column_content($column, $post_id) {
     if ($column === 'status') {
         $status = get_field('status', $post_id);
         $badges = array(
+            'planning' => '<span style="color: #00a0d2;">◐</span> Planlegging',
             'active' => '<span style="color: #46b450;">●</span> Aktiv',
             'completed' => '<span style="color: #00a0d2;">✓</span> Fullført',
             'on_hold' => '<span style="color: #ffb900;">⏸</span> På vent',
@@ -494,7 +658,7 @@ add_action('manage_prosjekt_posts_custom_column', 'placy_prosjekt_column_content
 function placy_story_columns($columns) {
     $new_columns = array();
     $new_columns['cb'] = $columns['cb'];
-    $new_columns['title'] = $columns['title'];
+    $new_columns['story_tittel'] = '📄 Story Tittel';
     $new_columns['prosjekt'] = '📁 Prosjekt';
     $new_columns['kunde'] = '👤 Kunde';
     $new_columns['type'] = '🏷️ Type';
@@ -505,10 +669,15 @@ function placy_story_columns($columns) {
 add_filter('manage_story_posts_columns', 'placy_story_columns');
 
 function placy_story_column_content($column, $post_id) {
+    if ($column === 'story_tittel') {
+        $tittel = get_field('tittel', $post_id);
+        echo $tittel ? '<strong><a href="' . get_edit_post_link($post_id) . '">' . esc_html($tittel) . '</a></strong>' : '<span style="color: #999;">Uten tittel</span>';
+    }
     if ($column === 'prosjekt') {
         $prosjekt = get_field('prosjekt', $post_id);
         if ($prosjekt) {
-            echo '<a href="' . get_edit_post_link($prosjekt->ID) . '"><strong>' . esc_html($prosjekt->post_title) . '</strong></a>';
+            $prosjekt_tittel = get_field('tittel', $prosjekt->ID);
+            echo '<a href="' . get_edit_post_link($prosjekt->ID) . '"><strong>' . esc_html($prosjekt_tittel) . '</strong></a>';
         } else {
             echo '<span style="color: #999;">Ingen prosjekt</span>';
         }
@@ -518,7 +687,8 @@ function placy_story_column_content($column, $post_id) {
         if ($prosjekt) {
             $kunde = get_field('kunde', $prosjekt->ID);
             if ($kunde) {
-                echo '<a href="' . get_edit_post_link($kunde->ID) . '">' . esc_html($kunde->post_title) . '</a>';
+                $kunde_navn = get_field('navn', $kunde->ID);
+                echo '<a href="' . get_edit_post_link($kunde->ID) . '">' . esc_html($kunde_navn) . '</a>';
             }
         } else {
             echo '<span style="color: #999;">—</span>';
@@ -532,6 +702,7 @@ function placy_story_column_content($column, $post_id) {
             'challenge' => '⚠️ Utfordring',
             'success' => '🎉 Suksess',
             'insight' => '💡 Innsikt',
+            'announcement' => '📢 Kunngjøring',
         );
         echo $icons[$type] ?? esc_html($type);
     }
@@ -548,7 +719,7 @@ add_action('manage_story_posts_custom_column', 'placy_story_column_content', 10,
 function placy_kunde_columns($columns) {
     $new_columns = array();
     $new_columns['cb'] = $columns['cb'];
-    $new_columns['title'] = $columns['title'];
+    $new_columns['kunde_navn'] = '👤 Kundenavn';
     $new_columns['logo'] = '🖼️ Logo';
     $new_columns['industry'] = '🏢 Bransje';
     $new_columns['projects_count'] = '📊 Antall Prosjekter';
@@ -558,6 +729,10 @@ function placy_kunde_columns($columns) {
 add_filter('manage_kunde_posts_columns', 'placy_kunde_columns');
 
 function placy_kunde_column_content($column, $post_id) {
+    if ($column === 'kunde_navn') {
+        $navn = get_field('navn', $post_id);
+        echo $navn ? '<strong><a href="' . get_edit_post_link($post_id) . '">' . esc_html($navn) . '</a></strong>' : '<span style="color: #999;">Uten navn</span>';
+    }
     if ($column === 'logo') {
         $logo = get_field('logo', $post_id);
         if ($logo && isset($logo['sizes']['thumbnail'])) {
@@ -565,8 +740,18 @@ function placy_kunde_column_content($column, $post_id) {
         }
     }
     if ($column === 'industry') {
-        $industry = get_field('industry', $post_id);
-        echo $industry ? esc_html($industry) : '<span style="color: #999;">—</span>';
+        $bransje = get_field('bransje', $post_id);
+        $bransje_labels = array(
+            'tech' => 'Teknologi',
+            'retail' => 'Detaljhandel',
+            'finance' => 'Finans',
+            'healthcare' => 'Helse',
+            'education' => 'Utdanning',
+            'manufacturing' => 'Industri',
+            'real_estate' => 'Eiendom',
+            'other' => 'Annet',
+        );
+        echo $bransje ? esc_html($bransje_labels[$bransje] ?? $bransje) : '<span style="color: #999;">—</span>';
     }
     if ($column === 'projects_count') {
         $args = array(
