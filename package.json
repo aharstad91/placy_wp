@@ -7,7 +7,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:prod": "NODE_ENV=production npm run build",
+    "deploy:vercel": "vercel --prod",
+    "deploy:wordpress": "./deployment/deploy-wp.sh",
+    "deploy:all": "npm run deploy:wordpress && npm run deploy:vercel",
+    "export": "next export"
   },
   "dependencies": {
     "next": "^14.2.0",
