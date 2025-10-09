@@ -52,20 +52,15 @@ export interface WordPressSiteInfo {
   url: string
 }
 
-// POI (Point of Interest) Types
+// POI (Point of Interest) Types - Mapbox-ready
 export interface POI {
   id: string
   title: string
   slug: string
   poiFields: {
-    poiIcon: string
     poiDescription: string
-    poiMetadata?: Array<{
-      tag: string
-    }>
-    poiPositionTop?: string
-    poiPositionLeft?: string
-    comingSoon: boolean
+    poiLatitude: number
+    poiLongitude: number
   }
 }
 

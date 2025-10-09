@@ -30,17 +30,14 @@ Story
         └── Related POIs (Relationship til POI CPT)
 ```
 
-### POI Struktur
+### POI Struktur (Mapbox-ready)
 ```
 POI
 ├── Title (WordPress standard)
 └── POI Fields (ACF)
-    ├── Icon (emoji)
-    ├── Description
-    ├── Metadata (repeater - tags)
-    ├── Position Top (% for kart-plassering)
-    ├── Position Left (% for kart-plassering)
-    └── Coming Soon (true/false)
+    ├── Description (textarea)
+    ├── Latitude (number) - GPS breddegrad
+    └── Longitude (number) - GPS lengdegrad
 ```
 
 ## 📝 Slik lager du en Story
@@ -51,20 +48,18 @@ POI
 2. Klikk **Legg til POI**
 3. Fyll inn:
    - **Tittel**: "Ranheim IL"
-   - **Ikon**: ⚽
    - **Beskrivelse**: "Mest kjent for sin sterke satsning på fotball..."
-   - **Metadata/Tags**: "Fotball", "Basketball", "Håndball"
-   - **Kart Posisjon**: Top: "25%", Left: "35%" (for senere kartimplementering)
-   - **Coming Soon**: Av (eller på hvis POI ikke er klar)
+   - **Latitude**: 63.4305
+   - **Longitude**: 10.5511
 4. Publiser
 
-Eksempel POIs:
-- ⚽ Ranheim IL
-- 🏃 Atletklubb
-- 🏊 Svømmeklubb
-- 🎯 NTNUI
-- 🛒 Kiwi Ranheim
-- ☕ Rosenborg Bakeri
+> 💡 **Tip**: Finn koordinater ved å høyreklikke i Google Maps og kopiere koordinatene
+
+Eksempel POIs med koordinater:
+- 📍 Ranheim IL (63.4305, 10.5511)
+- 📍 Ranheim Sentrum (63.4326, 10.5493)
+- 📍 NTNU Gløshaugen (63.4179, 10.4042)
+- � Trondheim Torg (63.4305, 10.3951)
 
 ### Steg 2: Opprett en Story
 

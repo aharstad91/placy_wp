@@ -62,11 +62,9 @@ export default function StorySection({ section }: StorySectionProps) {
                 {section.relatedPois.nodes.map((poi) => (
                   <button
                     key={poi.id}
-                    className={`poi-tag flex-shrink-0 ${poi.poiFields.comingSoon ? 'coming-soon' : ''}`}
-                    disabled={poi.poiFields.comingSoon}
-                    title={poi.poiFields.comingSoon ? 'Coming soon' : poi.title}
+                    className="poi-tag flex-shrink-0"
+                    title={poi.title}
                   >
-                    <span className="poi-tag-icon text-xl">{poi.poiFields.poiIcon}</span>
                     <span className="poi-tag-text font-medium">{poi.title}</span>
                   </button>
                 ))}
@@ -85,25 +83,16 @@ export default function StorySection({ section }: StorySectionProps) {
                 key={poi.id} 
                 className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 min-w-[280px] max-w-[280px]"
               >
-                <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <span>{poi.poiFields.poiIcon}</span>
-                  <span>{poi.title}</span>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {poi.title}
                 </h3>
                 <p className="text-sm text-gray-600 mb-3">
                   {poi.poiFields.poiDescription}
                 </p>
-                {poi.poiFields.poiMetadata && poi.poiFields.poiMetadata.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {poi.poiFields.poiMetadata.map((meta, idx) => (
-                      <span 
-                        key={idx} 
-                        className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded"
-                      >
-                        {meta.tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <div className="text-xs text-gray-500">
+                  <div>Lat: {poi.poiFields.poiLatitude}</div>
+                  <div>Lng: {poi.poiFields.poiLongitude}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -127,16 +116,11 @@ export default function StorySection({ section }: StorySectionProps) {
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
-        .poi-tag:hover:not(.coming-soon) {
+        .poi-tag:hover {
           background: white;
           border-color: #059669;
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-        .poi-tag.coming-soon {
-          opacity: 0.6;
-          cursor: not-allowed;
         }
 
         .scrollbar-hide::-webkit-scrollbar {

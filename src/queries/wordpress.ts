@@ -137,21 +137,16 @@ export const GET_SITE_INFO = gql`
   }
 `
 
-// POI Fragment
+// POI Fragment - Mapbox-ready
 export const POI_FIELDS = gql`
   fragment POIFields on Poi {
     id
     title
     slug
     poiFields {
-      poiIcon
       poiDescription
-      poiMetadata {
-        tag
-      }
-      poiPositionTop
-      poiPositionLeft
-      comingSoon
+      poiLatitude
+      poiLongitude
     }
   }
 `

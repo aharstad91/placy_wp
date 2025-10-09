@@ -511,21 +511,12 @@ function placy_register_acf_fields() {
     ));
 
     // ============================================
-    // POI FIELDS - Gjenbrukbare steder/lokasjoner
+    // POI FIELDS - Gjenbrukbare steder/lokasjoner (Mapbox-ready)
     // ============================================
     acf_add_local_field_group(array(
         'key' => 'group_poi',
         'title' => 'POI Informasjon',
         'fields' => array(
-            array(
-                'key' => 'field_poi_icon',
-                'label' => 'Ikon',
-                'name' => 'poi_icon',
-                'type' => 'text',
-                'instructions' => 'Emoji eller ikon (eks: ⚽, 🏃, 🏊)',
-                'default_value' => '📍',
-                'show_in_graphql' => 1,
-            ),
             array(
                 'key' => 'field_poi_description',
                 'label' => 'Beskrivelse',
@@ -536,50 +527,25 @@ function placy_register_acf_fields() {
                 'show_in_graphql' => 1,
             ),
             array(
-                'key' => 'field_poi_metadata',
-                'label' => 'Metadata/Tags',
-                'name' => 'poi_metadata',
-                'type' => 'repeater',
-                'layout' => 'table',
-                'button_label' => 'Legg til tag',
-                'instructions' => 'Tags som "Fotball", "Basketball", osv.',
-                'sub_fields' => array(
-                    array(
-                        'key' => 'field_poi_meta_tag',
-                        'label' => 'Tag',
-                        'name' => 'tag',
-                        'type' => 'text',
-                        'show_in_graphql' => 1,
-                    ),
-                ),
+                'key' => 'field_poi_latitude',
+                'label' => 'Latitude (Breddegrad)',
+                'name' => 'poi_latitude',
+                'type' => 'number',
+                'instructions' => 'Breddegrad for Mapbox (eks: 63.4305)',
+                'placeholder' => '63.4305',
+                'required' => 1,
+                'step' => 0.000001,
                 'show_in_graphql' => 1,
             ),
             array(
-                'key' => 'field_poi_position_top',
-                'label' => 'Kart Posisjon (Top %)',
-                'name' => 'poi_position_top',
-                'type' => 'text',
-                'instructions' => 'Vertikal plassering på kart (eks: 25%)',
-                'placeholder' => '25%',
-                'show_in_graphql' => 1,
-            ),
-            array(
-                'key' => 'field_poi_position_left',
-                'label' => 'Kart Posisjon (Left %)',
-                'name' => 'poi_position_left',
-                'type' => 'text',
-                'instructions' => 'Horisontal plassering på kart (eks: 35%)',
-                'placeholder' => '35%',
-                'show_in_graphql' => 1,
-            ),
-            array(
-                'key' => 'field_poi_coming_soon',
-                'label' => 'Coming Soon',
-                'name' => 'coming_soon',
-                'type' => 'true_false',
-                'instructions' => 'Marker som "kommer snart" (grå ut)',
-                'default_value' => 0,
-                'ui' => 1,
+                'key' => 'field_poi_longitude',
+                'label' => 'Longitude (Lengdegrad)',
+                'name' => 'poi_longitude',
+                'type' => 'number',
+                'instructions' => 'Lengdegrad for Mapbox (eks: 10.3951)',
+                'placeholder' => '10.3951',
+                'required' => 1,
+                'step' => 0.000001,
                 'show_in_graphql' => 1,
             ),
         ),
