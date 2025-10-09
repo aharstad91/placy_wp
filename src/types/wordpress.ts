@@ -72,11 +72,13 @@ export interface POI {
 // Story Types
 export interface StoryHero {
   backgroundImage?: {
-    sourceUrl: string
-    altText: string
-    mediaDetails?: {
-      width: number
-      height: number
+    node: {
+      sourceUrl: string
+      altText: string
+      mediaDetails?: {
+        width: number
+        height: number
+      }
     }
   }
   title: string
@@ -84,22 +86,26 @@ export interface StoryHero {
 }
 
 export interface StorySection {
-  __typename: 'StoryFieldsStorySectionsStorySection'
+  __typename: 'StoryFieldsStorySectionsStorySectionLayout'
   sectionId: string
   sectionIcon: string
   headerImage?: {
-    sourceUrl: string
-    altText: string
-    mediaDetails?: {
-      width: number
-      height: number
+    node: {
+      sourceUrl: string
+      altText: string
+      mediaDetails?: {
+        width: number
+        height: number
+      }
     }
   }
   title: string
   description: string
   mapType: 'none' | 'idrett' | 'mikrolokasjon' | 'hverdagsliv' | 'kafe' | 'natur' | 'transport' | 'oppvekst'
   showMap: boolean
-  relatedPois?: POI[]
+  relatedPois?: {
+    nodes: POI[]
+  }
 }
 
 export interface Story {

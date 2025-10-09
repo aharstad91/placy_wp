@@ -9,11 +9,11 @@ export default function StorySection({ section }: StorySectionProps) {
   return (
     <section id={section.sectionId} className="section px-6 py-6 mb-16">
       {/* Section Header Image */}
-      {section.headerImage && (
+      {section.headerImage?.node && (
         <div className="relative bg-gray-200 rounded-lg mb-6 overflow-hidden" style={{ height: 'calc(var(--viewport-height, 100vh) * 0.33)' }}>
           <Image
-            src={section.headerImage.sourceUrl}
-            alt={section.headerImage.altText || section.title}
+            src={section.headerImage.node.sourceUrl}
+            alt={section.headerImage.node.altText || section.title}
             fill
             className="object-cover"
           />
@@ -56,10 +56,10 @@ export default function StorySection({ section }: StorySectionProps) {
           </div>
 
           {/* POI Tags/Buttons */}
-          {section.relatedPois && section.relatedPois.length > 0 && (
+          {section.relatedPois?.nodes && section.relatedPois.nodes.length > 0 && (
             <div className="poi-tags-container overflow-x-auto pb-4 scrollbar-hide">
               <div className="flex gap-3">
-                {section.relatedPois.map((poi) => (
+                {section.relatedPois.nodes.map((poi) => (
                   <button
                     key={poi.id}
                     className={`poi-tag flex-shrink-0 ${poi.poiFields.comingSoon ? 'coming-soon' : ''}`}
@@ -77,10 +77,10 @@ export default function StorySection({ section }: StorySectionProps) {
       )}
 
       {/* POI Details Cards (horizontal scroll) */}
-      {section.relatedPois && section.relatedPois.length > 0 && (
+      {section.relatedPois?.nodes && section.relatedPois.nodes.length > 0 && (
         <div className="overflow-x-auto horizontal-scroll mt-6">
           <div className="flex gap-4 pb-6" style={{ width: 'max-content' }}>
-            {section.relatedPois.map((poi) => (
+            {section.relatedPois.nodes.map((poi) => (
               <div 
                 key={poi.id} 
                 className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 min-w-[280px] max-w-[280px]"

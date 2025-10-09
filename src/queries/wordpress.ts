@@ -204,22 +204,7 @@ export const GET_STORY_BY_SLUG = gql`
       storyFields {
         heroSection {
           backgroundImage {
-            sourceUrl
-            altText
-            mediaDetails {
-              width
-              height
-            }
-          }
-          title
-          description
-        }
-        storySections {
-          __typename
-          ... on StoryFieldsStorySectionsStorySection {
-            sectionId
-            sectionIcon
-            headerImage {
+            node {
               sourceUrl
               altText
               mediaDetails {
@@ -227,13 +212,34 @@ export const GET_STORY_BY_SLUG = gql`
                 height
               }
             }
+          }
+          title
+          description
+        }
+        storySections {
+          __typename
+          ... on StoryFieldsStorySectionsStorySectionLayout {
+            sectionId
+            sectionIcon
+            headerImage {
+              node {
+                sourceUrl
+                altText
+                mediaDetails {
+                  width
+                  height
+                }
+              }
+            }
             title
             description
             mapType
             showMap
             relatedPois {
-              ... on Poi {
-                ...POIFields
+              nodes {
+                ... on Poi {
+                  ...POIFields
+                }
               }
             }
           }

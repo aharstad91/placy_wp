@@ -11,8 +11,8 @@ export default function Hero({ hero }: HeroProps) {
       className="relative w-full bg-cover bg-center bg-no-repeat flex items-end" 
       style={{ 
         height: 'calc(var(--viewport-height, 100vh) * 0.9)',
-        backgroundImage: hero.backgroundImage?.sourceUrl 
-          ? `url(${hero.backgroundImage.sourceUrl})` 
+        backgroundImage: hero.backgroundImage?.node?.sourceUrl 
+          ? `url(${hero.backgroundImage.node.sourceUrl})` 
           : 'linear-gradient(135deg, #e8f4f8 0%, #d1e7dd 100%)'
       }}
     >
