@@ -145,6 +145,8 @@ export const POI_FIELDS = gql`
     slug
     poiFields {
       poiDescription
+      poiCategory
+      poiIcon
       poiLatitude
       poiLongitude
     }

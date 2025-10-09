@@ -59,6 +59,8 @@ export interface POI {
   slug: string
   poiFields: {
     poiDescription: string
+    poiCategory?: string
+    poiIcon?: string
     poiLatitude: number
     poiLongitude: number
   }
