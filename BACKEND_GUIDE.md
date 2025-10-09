@@ -1,28 +1,43 @@
 # 🏗️ Placy Backend Guide
 
+## ⚡ FULL ACF STRUKTUR
+All innhold er nå i ACF Pro fields - ingen WordPress native title/content/excerpt.
+
 ## Struktur Oversikt
 
 ```
 Kunder (kunde)
-  ├── Logo
+  ├── Navn *required*
+  ├── Beskrivelse (wysiwyg)
+  ├── Logo *required*
   ├── Website
-  ├── Bransje
-  └── Merkevare Farge
+  ├── Bransje (select)
+  ├── Merkevare Farge
+  ├── Kontaktperson
+  ├── E-post
+  └── Telefon
       │
       └── Prosjekter (prosjekt)
-            ├── Kunde (relasjon)
+            ├── Tittel *required*
+            ├── Beskrivelse (wysiwyg)
+            ├── Kunde (relasjon) *required*
+            ├── Bilder (gallery)
             ├── Startdato
             ├── Sluttdato
-            ├── Status
+            ├── Status *required*
             ├── Tech Stack
-            └── Prosjekt URL
+            ├── Prosjekt URL
+            └── GitHub URL
                 │
                 └── Stories (story)
-                      ├── Prosjekt (relasjon)
-                      ├── Type
-                      ├── Dato
+                      ├── Tittel *required*
+                      ├── Innhold (wysiwyg) *required*
+                      ├── Prosjekt (relasjon) *required*
+                      ├── Type *required*
+                      ├── Dato *required*
                       ├── Media Gallery
-                      └── Video URL
+                      ├── Video URL
+                      └── Høydepunkter (repeater)
 ```
 
 ## Custom Post Types
@@ -31,84 +46,95 @@ Kunder (kunde)
 - **Slug**: `/kunder/`
 - **GraphQL**: `kunde` / `kunder`
 - **Icon**: 👤 Businessperson
-- **Felter**:
-  - Logo (image)
-  - Website (url)
-  - Bransje (text)
-  - Merkevare Farge (color picker)
+- **ACF Fields (kundeFields)**:
+  - `navn` (text) *required*
+  - `beskrivelse` (wysiwyg)
+  - `logo` (image) *required*
+  - `website` (url)
+  - `bransje` (select: Teknologi, Detaljhandel, Finans, Helse, Utdanning, Industri, Eiendom, Annet)
+  - `brandColor` (color_picker)
+  - `kontaktperson` (text)
+  - `epost` (email)
+  - `telefon` (text)
 
 ### 2. **Prosjekt** (`prosjekt`)
 - **Slug**: `/prosjekter/`
 - **GraphQL**: `prosjekt` / `prosjekter`
 - **Icon**: 📁 Portfolio
-- **Felter**:
-  - **Kunde** (post_object → kunde) *REQUIRED*
-  - Startdato (date)
-  - Sluttdato (date)
-  - Status (select: Aktiv, Fullført, På vent, Arkivert)
-  - Tech Stack (checkbox: Next.js, WordPress, React, TypeScript, Tailwind, GraphQL)
-  - Prosjekt URL (url)
+- **ACF Fields (prosjektFields)**:
+  - `tittel` (text) *required*
+  - `beskrivelse` (wysiwyg)
+  - `kunde` (post_object → kunde) *required*
+  - `bilder` (gallery)
+  - `startDate` (date_picker)
+  - `endDate` (date_picker)
+  - `status` (select: Planlegging, Aktiv, Fullført, På vent, Arkivert) *required*
+  - `techStack` (checkbox: Next.js, WordPress, React, TypeScript, Tailwind CSS, GraphQL, Node.js, Python, Docker)
+  - `projectUrl` (url)
+  - `githubUrl` (url)
 
 ### 3. **Story** (`story`)
 - **Slug**: `/stories/`
 - **GraphQL**: `story` / `stories`
 - **Icon**: 📄 Media Document
-- **Felter**:
-  - **Prosjekt** (post_object → prosjekt) *REQUIRED*
-  - Type (select: Oppdatering, Milepæl, Utfordring, Suksess, Innsikt)
-  - Dato (date)
-  - Media Gallery (images)
-  - Video URL (url)
+- **ACF Fields (storyFields)**:
+  - `tittel` (text) *required*
+  - `innhold` (wysiwyg) *required*
+  - `prosjekt` (post_object → prosjekt) *required*
+  - `storyType` (select: Oppdatering, Milepæl, Utfordring, Suksess, Innsikt, Kunngjøring) *required*
+  - `storyDate` (date_picker) *required*
+  - `media` (gallery)
+  - `videoUrl` (url)
+  - `highlights` (repeater)
+    - `text` (text)
 
 ## GraphQL Queries
 
-### Hent alle kunder med prosjekter
+### Hent alle kunder (Full ACF)
 ```graphql
 query GetKunder {
   kunder {
     nodes {
       id
-      title
-      content
-      featuredImage {
-        node {
-          sourceUrl
-          altText
-        }
-      }
+      databaseId
       kundeFields {
+        navn
+        beskrivelse
         logo {
           sourceUrl
           altText
+          mediaDetails {
+            width
+            height
+          }
         }
         website
-        industry
+        bransje
         brandColor
+        kontaktperson
+        epost
+        telefon
       }
     }
   }
 }
 ```
 
-### Hent et prosjekt med kunde og stories
+### Hent et prosjekt med kunde og stories (Full ACF)
 ```graphql
 query GetProsjekt($id: ID!) {
   prosjekt(id: $id) {
     id
-    title
-    content
-    featuredImage {
-      node {
-        sourceUrl
-        altText
-      }
-    }
+    databaseId
     prosjektFields {
+      tittel
+      beskrivelse
       kunde {
         ... on Kunde {
           id
-          title
+          databaseId
           kundeFields {
+            navn
             logo {
               sourceUrl
             }
@@ -116,32 +142,49 @@ query GetProsjekt($id: ID!) {
           }
         }
       }
+      bilder {
+        sourceUrl
+        altText
+        mediaDetails {
+          width
+          height
+        }
+      }
       startDate
       endDate
       status
       techStack
       projectUrl
+      githubUrl
     }
   }
 }
 ```
 
-### Hent stories for et prosjekt
+### Hent alle stories med full data (Full ACF)
 ```graphql
-query GetStoriesForProsjekt($prosjektId: ID!) {
-  stories(where: { metaQuery: { 
-    key: "prosjekt", 
-    value: $prosjektId 
-  }}) {
+query GetAllStories {
+  stories {
     nodes {
       id
-      title
-      content
+      databaseId
       storyFields {
+        tittel
+        innhold
         prosjekt {
           ... on Prosjekt {
             id
-            title
+            prosjektFields {
+              tittel
+              kunde {
+                ... on Kunde {
+                  kundeFields {
+                    navn
+                    brandColor
+                  }
+                }
+              }
+            }
           }
         }
         storyType
@@ -151,6 +194,9 @@ query GetStoriesForProsjekt($prosjektId: ID!) {
           altText
         }
         videoUrl
+        highlights {
+          text
+        }
       }
     }
   }
