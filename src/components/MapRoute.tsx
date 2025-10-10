@@ -114,9 +114,17 @@ export default function MapRoute({
 
     // Cleanup
     return () => {
-      if (map.getLayer('route')) map.removeLayer('route')
-      if (map.getLayer('route-outline')) map.removeLayer('route-outline')
-      if (map.getSource('route')) map.removeSource('route')
+      // Check if map still exists and is not removed
+      if (!map || !map.getStyle()) return
+      
+      try {
+        if (map.getLayer('route')) map.removeLayer('route')
+        if (map.getLayer('route-outline')) map.removeLayer('route-outline')
+        if (map.getSource('route')) map.removeSource('route')
+      } catch (err) {
+        // Map may have been removed already - ignore errors
+        console.log('Map cleanup: layers already removed')
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, from, to, profile])
