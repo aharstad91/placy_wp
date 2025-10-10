@@ -75,29 +75,29 @@ export default function MapRoute({
               data: route.geometry
             })
 
-            // Add route line layer
-            map.addLayer({
-              id: 'route',
-              type: 'line',
-              source: 'route',
-              paint: {
-                'line-color': '#3b82f6',
-                'line-width': 4,
-                'line-opacity': 0.8
-              }
-            })
-
-            // Add route outline for better visibility
+            // Add white border/outline (drawn first, behind the blue line)
             map.addLayer({
               id: 'route-outline',
               type: 'line',
               source: 'route',
               paint: {
                 'line-color': '#ffffff',
-                'line-width': 6,
-                'line-opacity': 0.4
+                'line-width': 8,
+                'line-opacity': 1
               }
-            }, 'route')
+            })
+
+            // Add main blue route line (Google Maps style)
+            map.addLayer({
+              id: 'route',
+              type: 'line',
+              source: 'route',
+              paint: {
+                'line-color': '#4285F4', // Google Maps blue
+                'line-width': 5,
+                'line-opacity': 0.95
+              }
+            })
           }
         } else {
           setError('Kunne ikke finne rute')
