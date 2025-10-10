@@ -184,6 +184,15 @@ export const GET_STORIES = gql`
         title
         slug
         date
+        storyFields {
+          prosjekt {
+            ... on Prosjekt {
+              id
+              title
+              slug
+            }
+          }
+        }
       }
     }
   }

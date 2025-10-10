@@ -158,7 +158,7 @@ function placy_cpt($slug, $plural, $icon = 'admin-post') {
 
 // Register your Custom Post Types here
 function placy_register_cpts() {
-    // 1. KUNDER (Clients) - Full ACF
+        // 1. KUNDER (Customers) - WordPress Title + ACF
     register_post_type('kunde', array(
         'labels' => array(
             'name' => 'Kunder',
@@ -175,14 +175,14 @@ function placy_register_cpts() {
         'show_in_graphql' => true,
         'graphql_single_name' => 'kunde',
         'graphql_plural_name' => 'kunder',
-        'supports' => array('custom-fields'), // Kun ACF fields
+        'supports' => array('title', 'custom-fields'), // Title + ACF fields
         'has_archive' => true,
         'rewrite' => array('slug' => 'kunder'),
-        'menu_icon' => 'dashicons-businessperson',
+        'menu_icon' => 'dashicons-groups',
         'menu_position' => 5,
     ));
 
-    // 2. PROSJEKTER (Projects) - Full ACF
+    // 2. PROSJEKTER (Projects) - WordPress Title + ACF
     register_post_type('prosjekt', array(
         'labels' => array(
             'name' => 'Prosjekter',
@@ -199,14 +199,14 @@ function placy_register_cpts() {
         'show_in_graphql' => true,
         'graphql_single_name' => 'prosjekt',
         'graphql_plural_name' => 'prosjekter',
-        'supports' => array('custom-fields'), // Kun ACF fields
+        'supports' => array('title', 'custom-fields'), // Title + ACF fields
         'has_archive' => true,
         'rewrite' => array('slug' => 'prosjekter'),
         'menu_icon' => 'dashicons-portfolio',
         'menu_position' => 6,
     ));
 
-    // 3. STORIES - Full ACF
+    // 3. STORIES - Full ACF (Hierarkisk URL: /[prosjekt]/[story])
     register_post_type('story', array(
         'labels' => array(
             'name' => 'Stories',
@@ -224,8 +224,8 @@ function placy_register_cpts() {
         'graphql_single_name' => 'story',
         'graphql_plural_name' => 'stories',
         'supports' => array('title', 'custom-fields'), // Title + ACF fields
-        'has_archive' => true,
-        'rewrite' => array('slug' => 'stories'),
+        'has_archive' => false, // No archive, stories accessed via /[prosjekt]/[story]
+        'rewrite' => false, // Custom rewrite handled below
         'menu_icon' => 'dashicons-media-document',
         'menu_position' => 7,
     ));
@@ -257,6 +257,46 @@ function placy_register_cpts() {
 add_action('init', 'placy_register_cpts');
 
 /**
+ * CUSTOM REWRITE RULES FOR HIERARCHICAL STORY URLs
+ * URL Structure: /[prosjekt-slug]/[story-slug]
+ */
+function placy_story_rewrite_rules() {
+    add_rewrite_rule(
+        '^([^/]+)/([^/]+)/?$',
+        'index.php?story=$matches[2]&prosjekt_slug=$matches[1]',
+        'top'
+    );
+}
+add_action('init', 'placy_story_rewrite_rules');
+
+// Add custom query var for prosjekt_slug
+function placy_query_vars($vars) {
+    $vars[] = 'prosjekt_slug';
+    return $vars;
+}
+add_filter('query_vars', 'placy_query_vars');
+
+// Custom permalink structure for Story CPT
+function placy_story_permalink($post_link, $post) {
+    if ($post->post_type !== 'story') {
+        return $post_link;
+    }
+    
+    // Get the prosjekt relation from ACF
+    $prosjekt = get_field('prosjekt', $post->ID);
+    
+    if ($prosjekt && isset($prosjekt->post_name)) {
+        $prosjekt_slug = $prosjekt->post_name;
+        $story_slug = $post->post_name;
+        return home_url("/{$prosjekt_slug}/{$story_slug}/");
+    }
+    
+    // Fallback if no prosjekt is set
+    return home_url("/stories/{$post->post_name}/");
+}
+add_filter('post_type_link', 'placy_story_permalink', 10, 2);
+
+/**
  * ACF FIELD GROUPS - RELASJONER & METADATA
  * Hierarki: Kunde → Prosjekt → Story
  */
@@ -264,21 +304,12 @@ function placy_register_acf_fields() {
     if( !function_exists('acf_add_local_field_group') ) return;
 
     // ============================================
-    // KUNDE FIELDS - FULL ACF
+    // KUNDE FIELDS - WordPress Title + ACF Metadata
     // ============================================
     acf_add_local_field_group(array(
         'key' => 'group_kunde',
         'title' => 'Kunde Informasjon',
         'fields' => array(
-            array(
-                'key' => 'field_kunde_navn',
-                'label' => 'Kundenavn',
-                'name' => 'navn',
-                'type' => 'text',
-                'required' => 1,
-                'instructions' => 'Fyll inn kundens navn',
-                'show_in_graphql' => 1,
-            ),
             array(
                 'key' => 'field_kunde_beskrivelse',
                 'label' => 'Beskrivelse',
@@ -295,10 +326,10 @@ function placy_register_acf_fields() {
                 'label' => 'Logo',
                 'name' => 'logo',
                 'type' => 'image',
-                'required' => 1,
+                'required' => 0,
                 'return_format' => 'array',
                 'preview_size' => 'medium',
-                'instructions' => 'Last opp kundens logo',
+                'instructions' => 'Last opp kundens logo (valgfritt)',
                 'show_in_graphql' => 1,
             ),
             array(
@@ -375,21 +406,12 @@ function placy_register_acf_fields() {
     ));
 
     // ============================================
-    // PROSJEKT FIELDS - FULL ACF + RELASJON TIL KUNDE
+    // PROSJEKT FIELDS - WordPress Title + ACF Metadata
     // ============================================
     acf_add_local_field_group(array(
         'key' => 'group_prosjekt',
         'title' => 'Prosjekt Informasjon',
         'fields' => array(
-            array(
-                'key' => 'field_prosjekt_tittel',
-                'label' => 'Prosjekttittel',
-                'name' => 'tittel',
-                'type' => 'text',
-                'required' => 1,
-                'instructions' => 'Fyll inn prosjektets navn',
-                'show_in_graphql' => 1,
-            ),
             array(
                 'key' => 'field_prosjekt_beskrivelse',
                 'label' => 'Beskrivelse',
@@ -591,6 +613,19 @@ function placy_register_acf_fields() {
         'key' => 'group_story',
         'title' => 'Story Innhold',
         'fields' => array(
+            // Prosjekt Relation
+            array(
+                'key' => 'field_story_prosjekt',
+                'label' => 'Prosjekt',
+                'name' => 'prosjekt',
+                'type' => 'post_object',
+                'instructions' => 'Velg hvilket prosjekt denne storyen tilhører',
+                'required' => 1,
+                'post_type' => array('prosjekt'),
+                'return_format' => 'object',
+                'ui' => 1,
+                'show_in_graphql' => 1,
+            ),
             // Hero Section Group
             array(
                 'key' => 'field_story_hero',

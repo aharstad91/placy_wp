@@ -105,6 +105,12 @@ export interface StorySection {
   }
 }
 
+export interface Prosjekt {
+  id: string
+  title: string // WordPress native title (not ACF)
+  slug: string
+}
+
 export interface Story {
   id: string
   title: string
