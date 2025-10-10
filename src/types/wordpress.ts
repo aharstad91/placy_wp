@@ -109,6 +109,17 @@ export interface Prosjekt {
   id: string
   title: string // WordPress native title (not ACF)
   slug: string
+  prosjektFields?: {
+    beskrivelse?: string
+    status?: string
+    techStack?: string[]
+    projectUrl?: string
+    githubUrl?: string
+    // Location for Mapbox Directions API
+    prosjektLatitude?: string
+    prosjektLongitude?: string
+    prosjektAdresse?: string
+  }
 }
 
 export interface Story {

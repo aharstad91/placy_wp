@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { POI } from '@/types/wordpress'
+import MapRoute from './MapRoute'
 
 interface MapboxMapProps {
   pois: POI[]
@@ -12,6 +13,10 @@ interface MapboxMapProps {
   className?: string
   onPoiClick?: (poi: POI) => void
   selectedPoi?: POI | null // POI that should be centered when set
+  showRoute?: boolean // Whether to show route from routeFrom to selectedPoi
+  routeFrom?: [number, number] // Starting point for route [lng, lat]
+  routeProfile?: 'walking' | 'driving' | 'cycling' // Route type
+  onRouteLoaded?: (data: { distance: number; duration: number }) => void // Callback when route is loaded
 }
 
 export default function MapboxMap({ 
@@ -20,7 +25,11 @@ export default function MapboxMap({
   zoom = 12,
   className = '',
   onPoiClick,
-  selectedPoi
+  selectedPoi,
+  showRoute = false,
+  routeFrom,
+  routeProfile = 'walking',
+  onRouteLoaded
 }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -245,11 +254,37 @@ export default function MapboxMap({
     })
   }, [selectedPoi, isMapLoaded])
 
+  // Memoize route coordinates to prevent infinite re-renders
+  const routeTo = useMemo(() => {
+    if (!selectedPoi) return null
+    return [
+      typeof selectedPoi.poiFields.poiLongitude === 'string' 
+        ? parseFloat(selectedPoi.poiFields.poiLongitude)
+        : selectedPoi.poiFields.poiLongitude,
+      typeof selectedPoi.poiFields.poiLatitude === 'string'
+        ? parseFloat(selectedPoi.poiFields.poiLatitude)
+        : selectedPoi.poiFields.poiLatitude
+    ] as [number, number]
+  }, [selectedPoi])
+
   return (
-    <div 
-      ref={mapContainer} 
-      className={`w-full h-full ${className}`}
-      style={{ minHeight: '400px' }}
-    />
+    <>
+      <div 
+        ref={mapContainer} 
+        className={`w-full h-full ${className}`}
+        style={{ minHeight: '400px' }}
+      />
+      
+      {/* Show route if enabled and we have all required data */}
+      {showRoute && routeFrom && routeTo && isMapLoaded && (
+        <MapRoute
+          map={map.current}
+          from={routeFrom}
+          to={routeTo}
+          profile={routeProfile}
+          onRouteLoaded={onRouteLoaded}
+        />
+      )}
+    </>
   )
 }

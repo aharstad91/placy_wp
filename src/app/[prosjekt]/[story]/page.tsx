@@ -53,8 +53,15 @@ export default function StoryPage() {
   const { story } = data
   const { storyFields } = story
 
-  // TODO: Add prosjekt validation once we fix GraphQL query
-  // For now, we skip validation to get the page working
+  // TODO: Fix GraphQL prosjekt query (ACF post_object connection issue)
+  // For now, hardcode test coordinates for Overvik project
+  const prosjektLocation = prosjektSlug === 'overvik' 
+    ? {
+        latitude: '63.4305',
+        longitude: '10.3951',
+        adresse: 'Lundveien 18 C, 0678 Oslo'
+      }
+    : undefined
 
   return (
     <main className="min-h-screen">
@@ -75,7 +82,11 @@ export default function StoryPage() {
       {storyFields.storySections && storyFields.storySections.length > 0 && (
         <div>
           {storyFields.storySections.map((section, index) => (
-            <StorySection key={section.sectionId || index} section={section} />
+            <StorySection 
+              key={section.sectionId || index} 
+              section={section}
+              prosjektLocation={prosjektLocation}
+            />
           ))}
         </div>
       )}
