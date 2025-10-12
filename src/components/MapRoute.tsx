@@ -29,12 +29,7 @@ export default function MapRoute({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!map) {
-      console.log('MapRoute: map not ready')
-      return
-    }
-
-    console.log('MapRoute: Fetching route from', from, 'to', to)
+    if (!map) return
 
     const fetchRoute = async () => {
       setIsLoading(true)
@@ -47,12 +42,9 @@ export default function MapRoute({
         }
 
         const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${from[0]},${from[1]};${to[0]},${to[1]}?geometries=geojson&access_token=${token}`
-        console.log('MapRoute: Fetching from URL:', url)
         
         const response = await fetch(url)
         const data = await response.json()
-
-        console.log('MapRoute: API response:', data)
 
         if (data.routes && data.routes.length > 0) {
           const route = data.routes[0]
@@ -62,7 +54,6 @@ export default function MapRoute({
             geometry: route.geometry
           }
           
-          console.log('MapRoute: Route loaded successfully:', routeInfo)
           setRouteData(routeInfo)
           onRouteLoaded?.(routeInfo)
 
@@ -103,8 +94,10 @@ export default function MapRoute({
           setError('Kunne ikke finne rute')
         }
       } catch (err) {
-        console.error('Error fetching route:', err)
         setError('Feil ved henting av rute')
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching route:', err)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -122,8 +115,7 @@ export default function MapRoute({
         if (map.getLayer('route-outline')) map.removeLayer('route-outline')
         if (map.getSource('route')) map.removeSource('route')
       } catch (err) {
-        // Map may have been removed already - ignore errors
-        console.log('Map cleanup: layers already removed')
+        // Map may have been removed already - silently ignore
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

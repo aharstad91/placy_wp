@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "analyze": "ANALYZE=true next build",
     "build:prod": "NODE_ENV=production npm run build",
     "deploy:vercel": "vercel --prod",
     "deploy:wordpress": "./deployment/deploy-wp.sh",
@@ -30,6 +31,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.4",
     "@types/node": "^20.8.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
