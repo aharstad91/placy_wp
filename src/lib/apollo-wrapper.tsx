@@ -71,3 +71,8 @@ const client = new ApolloClient({
 export function ApolloWrapper({ children }: { children: React.ReactNode }) {
   return <ApolloProvider client={client}>{children}</ApolloProvider>
 }
+
+// Export getClient for server-side usage
+export function getClient() {
+  return client
+}

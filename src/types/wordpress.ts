@@ -63,6 +63,8 @@ export interface POI {
     poiIcon?: string
     poiLatitude: number
     poiLongitude: number
+    poiDisplayLocation?: string
+    poiDisplaySubtitle?: string
   }
 }
 
@@ -99,6 +101,7 @@ export interface StorySection {
   title: string
   description: string
   mapType: 'none' | 'idrett' | 'mikrolokasjon' | 'hverdagsliv' | 'kafe' | 'natur' | 'transport' | 'oppvekst'
+  poiDisplayMode?: 'collection_map' | 'individual_cards'
   showMap: boolean
   relatedPois?: {
     nodes: POI[]
@@ -119,6 +122,8 @@ export interface Prosjekt {
     prosjektLatitude?: string
     prosjektLongitude?: string
     prosjektAdresse?: string
+    // Landing Hub support
+    hasLandingHub?: boolean
   }
 }
 
@@ -130,5 +135,33 @@ export interface Story {
   storyFields: {
     heroSection: StoryHero
     storySections?: StorySection[]
+    prosjekt?: {
+      node: {
+        id: string
+        title: string
+        slug: string
+      }
+    }
   }
+}
+
+// Theme Story Types (Destinasjonsmarkedsføring)
+export interface ThemeStoryFields {
+  heroSection: StoryHero
+  storySections?: StorySection[]
+  relatedProsjekt?: {
+    nodes: Array<{
+      id: string
+      title: string
+      slug: string
+    }>
+  }
+}
+
+export interface ThemeStory {
+  id: string
+  title: string
+  slug: string
+  date: string
+  themeStoryFields: ThemeStoryFields
 }

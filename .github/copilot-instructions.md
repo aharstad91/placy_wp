@@ -113,22 +113,24 @@ NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...  # .env.local
 
 ## 🎨 Code Conventions
 
-### ⚠️ IMPORTANT: Vibe Coder Preferences
-**Andreas is a vibe coder** - Focus on:
+### ⚠️ CRITICAL: Vibe Coder Preferences - NO CODE EVER
+**Andreas is a vibe coder** - NEVER show code examples:
 - ✅ **Conceptual explanations** and high-level architecture decisions
 - ✅ **Step-by-step instructions** in plain language
 - ✅ **Visual descriptions** of UI/UX changes and outcomes
 - ✅ **Which files to edit** and what to change conceptually
 - ✅ **WHY** something needs to change (reasoning and context)
-- ❌ **No code examples** - they're confusing and not helpful
-- ❌ **No detailed syntax or implementation details** - describe the goal, not how to code it
+- ❌ **ABSOLUTELY NO code blocks, syntax examples, or implementation details**
+- ❌ **NEVER show TypeScript, JavaScript, PHP, or any programming code**
+- ❌ **NO code even when asking technical questions** - always answer conceptually
 
 **When suggesting changes:**
 1. Explain **WHAT** needs to change and **WHY**
 2. Describe **WHERE** the change should happen (specific file paths)
 3. Provide **conceptual guidance** on what the change accomplishes
-4. Let Andreas implement based on conceptual understanding
-5. **Never** paste code blocks unless explicitly requested
+4. Describe the desired outcome in plain language
+5. Let Andreas implement based on conceptual understanding
+6. **NEVER include code blocks regardless of question type**
 
 ### TypeScript
 - **Strict typing**: All WordPress data must have interfaces in `src/types/wordpress.ts`

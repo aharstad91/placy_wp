@@ -230,7 +230,31 @@ function placy_register_cpts() {
         'menu_position' => 7,
     ));
 
-    // 4. POI (Points of Interest) - Gjenbrukbare steder/lokasjoner
+    // 4. TEMA-STORIES - Destinasjonsmarkedsføring (gjenbruker Story struktur)
+    register_post_type('tema_story', array(
+        'labels' => array(
+            'name' => 'Tema-Stories',
+            'singular_name' => 'Tema-Story',
+            'add_new' => 'Legg til tema-story',
+            'add_new_item' => 'Legg til ny tema-story',
+            'edit_item' => 'Rediger tema-story',
+            'view_item' => 'Vis tema-story',
+            'all_items' => 'Alle tema-stories',
+            'search_items' => 'Søk tema-stories',
+        ),
+        'public' => true,
+        'show_in_rest' => true,
+        'show_in_graphql' => true,
+        'graphql_single_name' => 'themeStory',
+        'graphql_plural_name' => 'themeStories',
+        'supports' => array('title', 'custom-fields'), // Title + ACF fields
+        'has_archive' => false, // No archive, accessed via /[prosjekt]/[tema-story]
+        'rewrite' => false, // Custom rewrite handled below
+        'menu_icon' => 'dashicons-location-alt',
+        'menu_position' => 7.5,
+    ));
+
+    // 5. POI (Points of Interest) - Gjenbrukbare steder/lokasjoner
     register_post_type('poi', array(
         'labels' => array(
             'name' => 'POI (Steder)',
@@ -545,6 +569,18 @@ function placy_register_acf_fields() {
                 'required' => 0,
                 'show_in_graphql' => 1,
             ),
+            array(
+                'key' => 'field_prosjekt_has_landing_hub',
+                'label' => 'Vis som Landing Hub',
+                'name' => 'has_landing_hub',
+                'type' => 'true_false',
+                'instructions' => 'Når aktivert, viser prosjekt-siden en oversikt over relaterte tema-stories (f.eks Visit Trondheim Cruise Guide)',
+                'default_value' => 0,
+                'ui' => 1,
+                'ui_on_text' => 'Ja - Vis landing hub',
+                'ui_off_text' => 'Nei - Standard prosjekt',
+                'show_in_graphql' => 1,
+            ),
         ),
         'location' => array(
             array(
@@ -617,6 +653,24 @@ function placy_register_acf_fields() {
                 'placeholder' => '10.3951',
                 'required' => 1,
                 'step' => 0.000001,
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_poi_display_location',
+                'label' => 'Visningssted',
+                'name' => 'poi_display_location',
+                'type' => 'text',
+                'instructions' => 'Sted/by som vises i dropdown (eks: "Trondheim", "Bergen") for å skille like navn',
+                'placeholder' => 'Trondheim',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_poi_display_subtitle',
+                'label' => 'Undertittel',
+                'name' => 'poi_display_subtitle',
+                'type' => 'text',
+                'instructions' => 'Ekstra kontekst (eks: "Sentrum", "Byåsen", "Ved havna") som vises under tittel',
+                'placeholder' => 'Sentrum',
                 'show_in_graphql' => 1,
             ),
         ),
@@ -778,6 +832,20 @@ function placy_register_acf_fields() {
                                 'show_in_graphql' => 1,
                             ),
                             array(
+                                'key' => 'field_section_poi_display_mode',
+                                'label' => 'POI Visning',
+                                'name' => 'poi_display_mode',
+                                'type' => 'radio',
+                                'instructions' => 'Hvordan skal POI\'s vises? Samlekart viser alle på ett kart, Individuelle kort viser hvert POI som sitt eget kort.',
+                                'choices' => array(
+                                    'collection_map' => 'Samlekart (alle POI\'s på ett kart)',
+                                    'individual_cards' => 'Individuelle kort (grid av POI kort)',
+                                ),
+                                'default_value' => 'collection_map',
+                                'layout' => 'vertical',
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
                                 'key' => 'field_section_show_map',
                                 'label' => 'Vis Kart',
                                 'name' => 'show_map',
@@ -814,6 +882,202 @@ function placy_register_acf_fields() {
         ),
         'show_in_graphql' => 1,
         'graphql_field_name' => 'storyFields',
+        'menu_order' => 0,
+        'position' => 'acf_after_title',
+        'label_placement' => 'top',
+    ));
+
+    // ============================================
+    // TEMA-STORY FIELDS - Gjenbruker Story struktur + Related Prosjekt
+    // ============================================
+    acf_add_local_field_group(array(
+        'key' => 'group_tema_story',
+        'title' => 'Tema-Story Innhold',
+        'fields' => array(
+            // Related Prosjekt (NYTT FELT - eneste forskjell fra Story)
+            array(
+                'key' => 'field_tema_story_related_prosjekt',
+                'label' => 'Relatert Prosjekt',
+                'name' => 'related_prosjekt',
+                'type' => 'post_object',
+                'instructions' => 'Velg hvilket prosjekt denne tema-storyen tilhører (f.eks Visit Trondheim Cruise Tour)',
+                'required' => 1,
+                'post_type' => array('prosjekt'),
+                'return_format' => 'object',
+                'ui' => 1,
+                'show_in_graphql' => 1,
+            ),
+            // Hero Section Group (SAMME SOM STORY)
+            array(
+                'key' => 'field_tema_story_hero',
+                'label' => 'Hero Section',
+                'name' => 'hero_section',
+                'type' => 'group',
+                'instructions' => 'Hovedbilde og intro for tema-storyen',
+                'show_in_graphql' => 1,
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_tema_hero_background_image',
+                        'label' => 'Bakgrunnsbilde',
+                        'name' => 'background_image',
+                        'type' => 'image',
+                        'return_format' => 'array',
+                        'preview_size' => 'large',
+                        'instructions' => 'Stort bakgrunnsbilde for hero-seksjonen',
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_tema_hero_title',
+                        'label' => 'Tittel',
+                        'name' => 'title',
+                        'type' => 'text',
+                        'instructions' => 'Hovedtittel (eks: "Kulinariske Opplevelser")',
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_tema_hero_description',
+                        'label' => 'Beskrivelse',
+                        'name' => 'description',
+                        'type' => 'textarea',
+                        'rows' => 3,
+                        'instructions' => 'Intro-tekst under tittelen',
+                        'show_in_graphql' => 1,
+                    ),
+                ),
+            ),
+            
+            // Story Sections - Flexible Content (SAMME SOM STORY)
+            array(
+                'key' => 'field_tema_story_sections',
+                'label' => 'Tema-Story Seksjoner',
+                'name' => 'story_sections',
+                'type' => 'flexible_content',
+                'instructions' => 'Legg til seksjoner til tema-storyen (f.eks Fine Dining, Street Food, etc)',
+                'button_label' => 'Legg til seksjon',
+                'show_in_graphql' => 1,
+                'layouts' => array(
+                    // Layout: Story Section
+                    'layout_tema_story_section' => array(
+                        'key' => 'layout_tema_story_section',
+                        'name' => 'story_section',
+                        'label' => 'Story Section',
+                        'display' => 'block',
+                        'sub_fields' => array(
+                            array(
+                                'key' => 'field_tema_section_id',
+                                'label' => 'Section ID',
+                                'name' => 'section_id',
+                                'type' => 'text',
+                                'instructions' => 'Unik ID for anchor links (eks: "fine-dining")',
+                                'required' => 1,
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_icon',
+                                'label' => 'Ikon',
+                                'name' => 'section_icon',
+                                'type' => 'text',
+                                'instructions' => 'Emoji eller ikon (eks: 🍽️)',
+                                'default_value' => '📍',
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_header_image',
+                                'label' => 'Header Bilde',
+                                'name' => 'header_image',
+                                'type' => 'image',
+                                'return_format' => 'array',
+                                'preview_size' => 'medium',
+                                'instructions' => 'Bilde øverst i seksjonen',
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_title',
+                                'label' => 'Tittel',
+                                'name' => 'title',
+                                'type' => 'text',
+                                'instructions' => 'Seksjonstittel (eks: "Fine Dining")',
+                                'required' => 1,
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_description',
+                                'label' => 'Beskrivelse',
+                                'name' => 'description',
+                                'type' => 'textarea',
+                                'rows' => 4,
+                                'instructions' => 'Intro-tekst for seksjonen',
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_map_type',
+                                'label' => 'Kart Type',
+                                'name' => 'map_type',
+                                'type' => 'select',
+                                'instructions' => 'Hvilket kart skal vises',
+                                'choices' => array(
+                                    'none' => 'Ingen kart',
+                                    'kulinarisk' => 'Kulinarisk',
+                                    'shopping' => 'Shopping',
+                                    'kultur' => 'Kultur',
+                                    'natur' => 'Natur',
+                                    'transport' => 'Transport',
+                                    'historie' => 'Historie',
+                                ),
+                                'default_value' => 'none',
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_poi_display_mode',
+                                'label' => 'POI Visning',
+                                'name' => 'poi_display_mode',
+                                'type' => 'radio',
+                                'instructions' => 'Hvordan skal POI\'s vises?',
+                                'choices' => array(
+                                    'collection_map' => 'Samlekart (alle POI\'s på ett kart)',
+                                    'individual_cards' => 'Individuelle kort (grid av POI kort)',
+                                ),
+                                'default_value' => 'collection_map',
+                                'layout' => 'vertical',
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_show_map',
+                                'label' => 'Vis Kart',
+                                'name' => 'show_map',
+                                'type' => 'true_false',
+                                'instructions' => 'Vis kart i seksjonen',
+                                'default_value' => 1,
+                                'ui' => 1,
+                                'show_in_graphql' => 1,
+                            ),
+                            array(
+                                'key' => 'field_tema_section_related_pois',
+                                'label' => 'Relaterte POIs',
+                                'name' => 'related_pois',
+                                'type' => 'relationship',
+                                'instructions' => 'Velg POIs som skal vises i denne seksjonen',
+                                'post_type' => array('poi'),
+                                'filters' => array('search'),
+                                'return_format' => 'object',
+                                'show_in_graphql' => 1,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        'location' => array(
+            array(
+                array(
+                    'param' => 'post_type',
+                    'operator' => '==',
+                    'value' => 'tema_story',
+                ),
+            ),
+        ),
+        'show_in_graphql' => 1,
+        'graphql_field_name' => 'themeStoryFields',
         'menu_order' => 0,
         'position' => 'acf_after_title',
         'label_placement' => 'top',
@@ -989,3 +1253,33 @@ function placy_kunde_column_content($column, $post_id) {
     }
 }
 add_action('manage_kunde_posts_custom_column', 'placy_kunde_column_content', 10, 2);
+
+/**
+ * CUSTOM FORMATTERING AV POI I RELATIONSHIP FIELD
+ * Viser lokasjon og undertittel i dropdown for å skille POI-er med samme navn
+ */
+function placy_format_poi_relationship_result($title, $post, $field, $post_id) {
+    // Kun for POI post type
+    if ($post->post_type !== 'poi') {
+        return $title;
+    }
+    
+    // Hent feltene direkte (de ligger ikke i en sub-group)
+    $display_location = get_field('poi_display_location', $post->ID);
+    $display_subtitle = get_field('poi_display_subtitle', $post->ID);
+    
+    // Bygg formatert tittel
+    $formatted_title = $title;
+    
+    if ($display_location) {
+        $formatted_title .= ' <span style="color: #666; font-weight: normal;">(' . esc_html($display_location) . ')</span>';
+    }
+    
+    if ($display_subtitle) {
+        $formatted_title .= '<br><span style="color: #999; font-size: 0.9em; font-weight: normal;">' . esc_html($display_subtitle) . '</span>';
+    }
+    
+    return $formatted_title;
+}
+add_filter('acf/fields/relationship/result', 'placy_format_poi_relationship_result', 10, 4);
+

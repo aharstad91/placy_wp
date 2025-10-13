@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useState, useCallback, useMemo } from 'react'
 import { StorySection as StorySectionType, POI } from '@/types/wordpress'
 import MapboxMap from '@/components/MapboxMap'
+import POICardsGrid from './POICardsGrid'
 
 interface StorySectionProps {
   section: StorySectionType
@@ -63,15 +64,32 @@ export default function StorySection({ section, prosjektLocation }: StorySection
         </p>
       </header>
 
-      {/* Map and POI Section */}
-      {section.showMap && section.relatedPois?.nodes && section.relatedPois.nodes.length > 0 && (
-        <div className="section-content">
-          {/* Map Placeholder/Trigger */}
-          <div 
-            className="bg-gray-200 rounded-lg relative mb-6 transition-all hover:bg-gray-300 cursor-pointer bg-cover bg-center border border-gray-300" 
-            style={{ height: 'calc(var(--viewport-height, 100vh) * 0.4)' }}
-            onClick={() => setIsMapOpen(true)}
-          >
+      {/* POI Section - Conditional Rendering based on Display Mode */}
+      {section.relatedPois?.nodes && section.relatedPois.nodes.length > 0 && (
+        <>
+          {/* Individual POI Cards Mode */}
+          {section.poiDisplayMode === 'individual_cards' && (
+            <POICardsGrid 
+              pois={section.relatedPois.nodes}
+              onCardClick={(poiId) => {
+                const poi = section.relatedPois?.nodes.find(p => p.id === poiId)
+                if (poi) {
+                  setIsMapOpen(true)
+                  setTimeout(() => setSelectedPoi(poi), 600)
+                }
+              }}
+            />
+          )}
+
+          {/* Collection Map Mode (default/existing behavior) */}
+          {(!section.poiDisplayMode || section.poiDisplayMode === 'collection_map') && section.showMap && (
+            <div className="section-content">
+              {/* Map Placeholder/Trigger */}
+              <div 
+                className="bg-gray-200 rounded-lg relative mb-6 transition-all hover:bg-gray-300 cursor-pointer bg-cover bg-center border border-gray-300" 
+                style={{ height: 'calc(var(--viewport-height, 100vh) * 0.4)' }}
+                onClick={() => setIsMapOpen(true)}
+              >
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="text-gray-600 text-2xl font-medium mb-2">
                 {section.mapType === 'idrett' ? 'Idrett & Trening' : 'Kart'}
@@ -110,9 +128,11 @@ export default function StorySection({ section, prosjektLocation }: StorySection
               </div>
             </div>
           </div>
+            </div>
+          )}
 
-          {/* Fullscreen Map Modal */}
-          {isMapOpen && (
+          {/* Fullscreen Map Modal - Shared by both display modes */}
+          {isMapOpen && section.relatedPois?.nodes && (
             <div 
               className="fixed inset-0 z-50 bg-white"
               style={{ height: '100vh', width: '100vw' }}
@@ -382,7 +402,7 @@ export default function StorySection({ section, prosjektLocation }: StorySection
               )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       <style jsx>{`

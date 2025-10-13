@@ -149,6 +149,8 @@ export const POI_FIELDS = gql`
       poiIcon
       poiLatitude
       poiLongitude
+      poiDisplayLocation
+      poiDisplaySubtitle
     }
   }
 `
@@ -240,6 +242,7 @@ export const GET_STORY_BY_SLUG = gql`
             title
             description
             mapType
+            poiDisplayMode
             showMap
             relatedPois {
               nodes {
@@ -248,6 +251,141 @@ export const GET_STORY_BY_SLUG = gql`
                 }
               }
             }
+          }
+        }
+      }
+    }
+  }
+`
+
+// Get Prosjekt by slug with location data
+export const GET_PROSJEKT_BY_SLUG = gql`
+  query GetProsjektBySlug($slug: ID!) {
+    prosjekt(id: $slug, idType: SLUG) {
+      id
+      title
+      slug
+      prosjektFields {
+        beskrivelse
+        status
+        hasLandingHub
+        prosjektLatitude
+        prosjektLongitude
+        prosjektAdresse
+      }
+    }
+  }
+`
+
+// Get Theme Story by slug with full data
+export const GET_THEME_STORY_BY_SLUG = gql`
+  ${POI_FIELDS}
+  query GetThemeStoryBySlug($slug: ID!) {
+    themeStory(id: $slug, idType: SLUG) {
+      id
+      title
+      slug
+      date
+      themeStoryFields {
+        relatedProsjekt {
+          nodes {
+            ... on Prosjekt {
+              id
+              title
+              slug
+            }
+          }
+        }
+        heroSection {
+          backgroundImage {
+            node {
+              sourceUrl
+              altText
+              mediaDetails {
+                width
+                height
+              }
+            }
+          }
+          title
+          description
+        }
+        storySections {
+          __typename
+          ... on ThemeStoryFieldsStorySectionsStorySectionLayout {
+            sectionId
+            sectionIcon
+            headerImage {
+              node {
+                sourceUrl
+                altText
+                mediaDetails {
+                  width
+                  height
+                }
+              }
+            }
+            title
+            description
+            mapType
+            poiDisplayMode
+            showMap
+            relatedPois {
+              nodes {
+                ... on Poi {
+                  ...POIFields
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+// Get all Theme Stories for a specific prosjekt (for Landing Hub)
+export const GET_THEME_STORIES_BY_PROJECT = gql`
+  query GetThemeStoriesByProject($prosjektSlug: String!, $first: Int = 50) {
+    themeStories(
+      first: $first
+      where: { 
+        status: PUBLISH
+        metaQuery: {
+          metaArray: [
+            {
+              key: "related_prosjekt"
+              value: $prosjektSlug
+              compare: LIKE
+            }
+          ]
+        }
+      }
+    ) {
+      nodes {
+        id
+        title
+        slug
+        date
+        themeStoryFields {
+          relatedProsjekt {
+            nodes {
+              ... on Prosjekt {
+                id
+                title
+                slug
+              }
+            }
+          }
+          heroSection {
+            backgroundImage {
+              node {
+                sourceUrl
+                altText
+              }
+            }
+            title
+            description
           }
         }
       }
