@@ -76,77 +76,33 @@ export default function RoutePreviewMap({ startLocation, waypoints, onMapClick }
   useEffect(() => {
     if (!map.current || !mapLoaded) return undefined
 
-    // Create container for start marker with label
-    const startContainer = document.createElement('div')
-    startContainer.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      cursor: pointer;
-    `
-
-    // Start marker element
-    const startEl = document.createElement('div')
-    startEl.style.cssText = `
-      width: 40px;
-      height: 40px;
-      background-color: #10b981;
-      border-radius: 50%;
-      border: 3px solid white;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-    `
-    startEl.innerHTML = '🚩'
-
-    // Start label
-    const startLabel = document.createElement('div')
-    startLabel.textContent = startLocation.name
-    startLabel.style.cssText = `
-      margin-top: 8px;
-      padding: 4px 8px;
-      background-color: white;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      white-space: nowrap;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    `
-
-    startContainer.appendChild(startEl)
-    startContainer.appendChild(startLabel)
-
-    new mapboxgl.Marker({ element: startContainer, anchor: 'bottom' })
-      .setLngLat([startLocation.longitude, startLocation.latitude])
-      .addTo(map.current)
-
-    // Add waypoint markers with images and labels
+    // Start marker removed - only showing waypoints now
+    
+    // Add waypoint markers with integrated image and label
     waypoints.forEach((waypoint, index) => {
-      // Container for marker + label
+      // Main container with white background containing both image and label
       const container = document.createElement('div')
       container.style.cssText = `
+        background-color: white;
+        border-radius: 8px;
+        padding: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        cursor: pointer;
         display: flex;
         flex-direction: column;
         align-items: center;
-        cursor: pointer;
+        gap: 6px;
+        transition: transform 0.2s, box-shadow 0.2s;
       `
 
-      // Marker element with image or number
-      const markerEl = document.createElement('div')
-      
       if (waypoint.image) {
-        // Show POI image
-        markerEl.style.cssText = `
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          border: 3px solid #3b82f6;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        // Image container with number badge overlay
+        const imageContainer = document.createElement('div')
+        imageContainer.style.cssText = `
+          width: 60px;
+          height: 60px;
+          border-radius: 8px;
           overflow: hidden;
-          background-color: white;
           position: relative;
         `
         
@@ -158,74 +114,73 @@ export default function RoutePreviewMap({ startLocation, waypoints, onMapClick }
           height: 100%;
           object-fit: cover;
         `
-        markerEl.appendChild(img)
+        imageContainer.appendChild(img)
 
-        // Add number badge
+        // Number badge on top of image with high z-index
         const badge = document.createElement('div')
         badge.textContent = (index + 1).toString()
         badge.style.cssText = `
           position: absolute;
-          bottom: -5px;
-          right: -5px;
-          width: 20px;
-          height: 20px;
+          top: 4px;
+          right: 4px;
+          width: 24px;
+          height: 24px;
           background-color: #3b82f6;
           color: white;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: bold;
           border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          z-index: 10;
         `
-        markerEl.appendChild(badge)
+        imageContainer.appendChild(badge)
+        
+        container.appendChild(imageContainer)
       } else {
         // No image, show numbered circle
-        markerEl.innerHTML = waypoint.icon || (index + 1).toString()
-        markerEl.style.cssText = `
-          width: 40px;
-          height: 40px;
+        const numberCircle = document.createElement('div')
+        numberCircle.innerHTML = waypoint.icon || (index + 1).toString()
+        numberCircle.style.cssText = `
+          width: 60px;
+          height: 60px;
           background-color: #3b82f6;
           color: white;
-          border-radius: 50%;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          font-size: 16px;
-          border: 3px solid white;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+          font-size: 24px;
         `
+        container.appendChild(numberCircle)
       }
 
-      // Label element
+      // Label text inside the white container
       const labelEl = document.createElement('div')
       labelEl.textContent = waypoint.name
       labelEl.style.cssText = `
-        margin-top: 8px;
-        padding: 4px 8px;
-        background-color: white;
-        border-radius: 4px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         color: #374151;
-        white-space: nowrap;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        max-width: 80px;
+        line-height: 1.2;
       `
 
-      container.appendChild(markerEl)
       container.appendChild(labelEl)
 
       // Add hover effect
       container.addEventListener('mouseenter', () => {
-        markerEl.style.transform = 'scale(1.1)'
-        labelEl.style.fontWeight = '700'
+        container.style.transform = 'scale(1.05) translateY(-2px)'
+        container.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)'
       })
       container.addEventListener('mouseleave', () => {
-        markerEl.style.transform = 'scale(1)'
-        labelEl.style.fontWeight = '600'
+        container.style.transform = 'scale(1) translateY(0)'
+        container.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
       })
 
       new mapboxgl.Marker({ element: container, anchor: 'bottom' })

@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import RoutePreviewMap from './RoutePreviewMap'
+import RouteMap from './RouteMap'
 import RouteTimeline from './RouteTimeline'
-import RouteMapOverlay from './RouteMapOverlay'
 import { RouteWaypoint, POI } from '@/types/wordpress'
 
 interface RouteContentWrapperProps {
@@ -48,7 +47,8 @@ export default function RouteContentWrapper({
       <div className="bg-white py-8">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">🗺️ Route Overview</h2>
-          <RoutePreviewMap
+          <RouteMap
+            mode="preview"
             startLocation={startLocation}
             waypoints={waypoints
               .filter(wp => wp.relatedPoi.nodes.length > 0)
@@ -75,7 +75,8 @@ export default function RouteContentWrapper({
       />
 
       {/* Map Overlay Modal */}
-      <RouteMapOverlay
+      <RouteMap
+        mode="fullscreen"
         isOpen={isMapOverlayOpen}
         onClose={handleCloseOverlay}
         pois={pois}

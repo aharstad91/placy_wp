@@ -1,16 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { POI } from '@/types/wordpress'
 
-interface RouteMapOverlayProps {
-  isOpen: boolean
-  onClose: () => void
-  pois: POI[]
-  selectedPoi?: POI | null
-  onPoiSelect?: (poi: POI) => void
+interface RouteMapProps {
+  mode: 'preview' | 'fullscreen'
   startLocation: {
     latitude: number
     longitude: number
@@ -24,22 +20,34 @@ interface RouteMapOverlayProps {
     image?: string
     estimatedTime?: number
   }>
+  // Preview mode props
+  onMapClick?: () => void
+  // Fullscreen mode props
+  isOpen?: boolean
+  onClose?: () => void
+  pois?: POI[]
+  selectedPoi?: POI | null
+  onPoiSelect?: (poi: POI) => void
 }
 
-export default function RouteMapOverlay({
-  isOpen,
-  onClose,
-  pois,
-  selectedPoi,
-  onPoiSelect,
+export default function RouteMap({
+  mode,
   startLocation,
-  waypoints
-}: RouteMapOverlayProps) {
+  waypoints,
+  onMapClick,
+  isOpen = true,
+  onClose,
+  pois = [],
+  selectedPoi,
+  onPoiSelect
+}: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapError, setMapError] = useState(false)
   const [localSelectedPoi, setLocalSelectedPoi] = useState<POI | null>(selectedPoi || null)
   const markersRef = useRef<mapboxgl.Marker[]>([])
+  const timeBadgeElementsRef = useRef<HTMLElement[]>([])
 
   // Update localSelectedPoi when selectedPoi prop changes
   useEffect(() => {
@@ -48,27 +56,61 @@ export default function RouteMapOverlay({
     }
   }, [selectedPoi])
 
-  // Initialize map when modal opens
+  // Initialize map
   useEffect(() => {
-    if (!isOpen || !mapContainer.current || map.current) return undefined
+    // For fullscreen mode, only initialize when open
+    if (mode === 'fullscreen' && !isOpen) return undefined
+    
+    if (!mapContainer.current || map.current) return undefined
 
     try {
       mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
       
+      // Calculate initial bounds to avoid jump
+      const bounds = new mapboxgl.LngLatBounds()
+      bounds.extend([startLocation.longitude, startLocation.latitude])
+      waypoints.forEach(wp => {
+        bounds.extend([wp.longitude, wp.latitude])
+      })
+      
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [startLocation.longitude, startLocation.latitude],
-        zoom: 13
+        bounds: bounds,
+        fitBoundsOptions: {
+          padding: mode === 'preview' ? 50 : 80,
+          duration: 0 // No animation on initial load
+        }
       })
 
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+      // Add navigation controls for fullscreen mode
+      if (mode === 'fullscreen') {
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+      }
+
+      let hasLoaded = false
 
       map.current.on('load', () => {
+        hasLoaded = true
         setMapLoaded(true)
+        setMapError(false)
       })
 
+      map.current.on('error', (e) => {
+        console.error('Mapbox error:', e)
+        setMapError(true)
+      })
+
+      // Add timeout to prevent infinite loading
+      const loadTimeout = setTimeout(() => {
+        if (!hasLoaded) {
+          console.warn('Map loading timeout')
+          setMapError(true)
+        }
+      }, 10000)
+
       return () => {
+        clearTimeout(loadTimeout)
         if (map.current) {
           map.current.remove()
           map.current = null
@@ -78,9 +120,10 @@ export default function RouteMapOverlay({
       }
     } catch (error) {
       console.error('Failed to initialize map:', error)
+      setMapError(true)
       return undefined
     }
-  }, [isOpen, startLocation.latitude, startLocation.longitude])
+  }, [mode, isOpen, startLocation.latitude, startLocation.longitude])
 
   // Add markers and route when map is loaded
   useEffect(() => {
@@ -90,34 +133,53 @@ export default function RouteMapOverlay({
     markersRef.current.forEach(marker => marker.remove())
     markersRef.current = []
 
-    // Start marker removed - only showing waypoints in fullscreen mode
+    // Add START LOCATION marker (green flag)
+    const startMarkerEl = document.createElement('div')
+    startMarkerEl.innerHTML = '🚩' // Green flag emoji
+    startMarkerEl.style.cssText = `
+      font-size: 32px;
+      cursor: pointer;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    `
+    startMarkerEl.title = startLocation.name
     
-    // Add waypoint markers with integrated image and label
+    const startMarker = new mapboxgl.Marker({ element: startMarkerEl, anchor: 'bottom' })
+      .setLngLat([startLocation.longitude, startLocation.latitude])
+      .addTo(map.current!)
+    
+    markersRef.current.push(startMarker)
+
+    // Add waypoint markers with modern map-style design
     waypoints.forEach((waypoint, index) => {
-      // Main container with white background containing both image and label
+      // Main container - no background, transparent
       const container = document.createElement('div')
       container.style.cssText = `
-        background-color: white;
-        border-radius: 8px;
-        padding: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         cursor: pointer;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 6px;
-        transition: transform 0.2s, box-shadow 0.2s;
+        gap: 4px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       `
 
       if (waypoint.image) {
-        // Image container with number badge overlay
+        // Wrapper for image and badge positioned outside
+        const imageWrapper = document.createElement('div')
+        imageWrapper.style.cssText = `
+          position: relative;
+          width: 36px;
+          height: 36px;
+        `
+        
+        // Circular image container
         const imageContainer = document.createElement('div')
         imageContainer.style.cssText = `
-          width: 60px;
-          height: 60px;
-          border-radius: 8px;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
           overflow: hidden;
-          position: relative;
+          border: 2px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         `
         
         const img = document.createElement('img')
@@ -129,82 +191,102 @@ export default function RouteMapOverlay({
           object-fit: cover;
         `
         imageContainer.appendChild(img)
+        imageWrapper.appendChild(imageContainer)
 
-        // Number badge on top of image with high z-index
+        // Number badge OUTSIDE the circular image
         const badge = document.createElement('div')
         badge.textContent = (index + 1).toString()
         badge.style.cssText = `
           position: absolute;
-          top: 4px;
-          right: 4px;
-          width: 24px;
-          height: 24px;
+          top: -6px;
+          right: -6px;
+          width: 20px;
+          height: 20px;
           background-color: #3b82f6;
           color: white;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: bold;
           border: 2px solid white;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
           z-index: 10;
         `
-        imageContainer.appendChild(badge)
+        imageWrapper.appendChild(badge)
         
-        container.appendChild(imageContainer)
+        container.appendChild(imageWrapper)
       } else {
         // No image, show numbered circle
         const numberCircle = document.createElement('div')
         numberCircle.innerHTML = waypoint.icon || (index + 1).toString()
         numberCircle.style.cssText = `
-          width: 60px;
-          height: 60px;
+          width: 36px;
+          height: 36px;
           background-color: #3b82f6;
           color: white;
-          border-radius: 8px;
+          border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          font-size: 24px;
+          font-size: 16px;
+          border: 2px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         `
         container.appendChild(numberCircle)
       }
 
-      // Label text inside the white container
+      // Label text with white color, strong shadow and semi-transparent background
       const labelEl = document.createElement('div')
       labelEl.textContent = waypoint.name
       labelEl.style.cssText = `
-        font-size: 11px;
-        font-weight: 600;
-        color: #374151;
+        font-size: 12px;
+        font-weight: 700;
+        color: white;
         text-align: center;
-        max-width: 80px;
-        line-height: 1.2;
+        max-width: 100px;
+        line-height: 1.3;
+        text-shadow: 
+          0 0 4px rgba(0,0,0,0.9),
+          0 1px 3px rgba(0,0,0,0.9),
+          0 2px 6px rgba(0,0,0,0.8),
+          1px 1px 3px rgba(0,0,0,0.9),
+          -1px -1px 3px rgba(0,0,0,0.9),
+          2px 2px 4px rgba(0,0,0,0.7);
+        padding: 3px 6px;
+        background-color: rgba(0,0,0,0.25);
+        border-radius: 4px;
+        backdrop-filter: blur(2px);
       `
 
       container.appendChild(labelEl)
 
-      // Add hover effect
-      container.addEventListener('mouseenter', () => {
-        container.style.transform = 'scale(1.05) translateY(-2px)'
-        container.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)'
-      })
-      container.addEventListener('mouseleave', () => {
-        container.style.transform = 'scale(1) translateY(0)'
-        container.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
-      })
+      // Add hover effect - subtle scale on image/circle only
+      if (waypoint.image) {
+        const imageContainer = container.firstChild as HTMLElement
+        container.addEventListener('mouseenter', () => {
+          if (imageContainer) {
+            imageContainer.style.transform = 'scale(1.1)'
+            imageContainer.style.transition = 'transform 0.2s ease'
+          }
+        })
+        container.addEventListener('mouseleave', () => {
+          if (imageContainer) {
+            imageContainer.style.transform = 'scale(1)'
+          }
+        })
+      }
 
-      // Click handler to show POI details
-      const poi = pois[index]
-      container.addEventListener('click', () => {
-        if (poi && onPoiSelect) {
+      // Click handler for fullscreen mode to show POI details
+      if (mode === 'fullscreen' && pois[index] && onPoiSelect) {
+        const poi = pois[index]
+        container.addEventListener('click', () => {
           setLocalSelectedPoi(poi)
           onPoiSelect(poi)
-        }
-      })
+        })
+      }
 
       const marker = new mapboxgl.Marker({ element: container, anchor: 'bottom' })
         .setLngLat([waypoint.longitude, waypoint.latitude])
@@ -213,11 +295,12 @@ export default function RouteMapOverlay({
       markersRef.current.push(marker)
     })
 
-    // Fetch and draw route
+    // Fetch and draw route (complete loop: start -> waypoints -> back to start)
     const fetchRoute = async () => {
       const coordinates = [
         [startLocation.longitude, startLocation.latitude],
-        ...waypoints.map(wp => [wp.longitude, wp.latitude])
+        ...waypoints.map(wp => [wp.longitude, wp.latitude]),
+        [startLocation.longitude, startLocation.latitude] // Return to start
       ]
 
       const coordinatesString = coordinates.map(c => `${c[0]},${c[1]}`).join(';')
@@ -259,17 +342,33 @@ export default function RouteMapOverlay({
             }
           })
 
-          // Add time badges
+          // Add time badges only in fullscreen mode
           const routeCoords = route.coordinates
           const allPoints = [
             [startLocation.longitude, startLocation.latitude],
-            ...waypoints.map(wp => [wp.longitude, wp.latitude])
+            ...waypoints.map(wp => [wp.longitude, wp.latitude]),
+            [startLocation.longitude, startLocation.latitude] // Return to start
           ]
           
-          for (let i = 1; i < allPoints.length; i++) {
-            const waypoint = waypoints[i - 1]
+          // Clear old time badges from ref
+          timeBadgeElementsRef.current = []
+          
+          // Only create time badges in fullscreen mode
+          if (mode === 'fullscreen') {
+            for (let i = 1; i < allPoints.length; i++) {
+              // Determine if this is the last segment (return to start)
+              const isReturnSegment = i === allPoints.length - 1
+              
+              // Get estimated time: use first waypoint's time for return segment
+              let estimatedTime: number | undefined
+              if (isReturnSegment) {
+                // For return to start, use first waypoint's time as estimate
+                estimatedTime = waypoints[0]?.estimatedTime
+              } else {
+                estimatedTime = waypoints[i - 1]?.estimatedTime
+              }
             
-            if (!waypoint.estimatedTime || waypoint.estimatedTime === 0) continue
+            if (!estimatedTime || estimatedTime === 0) continue
             
             const startCoord = allPoints[i - 1]
             const endCoord = allPoints[i]
@@ -334,19 +433,23 @@ export default function RouteMapOverlay({
               const midCoord = routeCoords[midIdx]
               
               const timeBadge = document.createElement('div')
+              timeBadge.className = 'route-time-badge'
+              
+              // Always start hidden, zoom listener will show them if needed
               timeBadge.style.cssText = `
                 background-color: #3b82f6;
                 color: white;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 13px;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
                 font-weight: 700;
                 white-space: nowrap;
-                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+                box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
                 border: 2px solid white;
                 cursor: default;
+                display: none;
               `
-              timeBadge.textContent = `${waypoint.estimatedTime} min`
+              timeBadge.textContent = `${estimatedTime} min`
 
               const timeBadgeMarker = new mapboxgl.Marker({ 
                 element: timeBadge,
@@ -356,26 +459,152 @@ export default function RouteMapOverlay({
                 .addTo(map.current!)
               
               markersRef.current.push(timeBadgeMarker)
+              timeBadgeElementsRef.current.push(timeBadge)
+            }
             }
           }
 
           const bounds = new mapboxgl.LngLatBounds()
           route.coordinates.forEach((coord: [number, number]) => bounds.extend(coord))
-          map.current.fitBounds(bounds, { padding: 80 })
+          const padding = mode === 'preview' ? 50 : 80
+          map.current.fitBounds(bounds, { 
+            padding,
+            duration: 800, // Smooth animation
+            essential: true // Animation will happen even if user prefers reduced motion
+          })
         }
       } catch (error) {
         console.error('Failed to fetch route:', error)
+        
+        // Fallback for preview mode
+        if (mode === 'preview') {
+          const coordinates = [
+            [startLocation.longitude, startLocation.latitude],
+            ...waypoints.map(wp => [wp.longitude, wp.latitude])
+          ]
+
+          if (map.current?.getSource('route')) {
+            map.current.removeLayer('route')
+            map.current.removeSource('route')
+          }
+
+          map.current?.addSource('route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: coordinates
+              }
+            }
+          })
+
+          map.current?.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#3b82f6',
+              'line-width': 4,
+              'line-opacity': 0.8
+            }
+          })
+
+          const bounds = new mapboxgl.LngLatBounds()
+          coordinates.forEach(coord => bounds.extend(coord as [number, number]))
+          map.current?.fitBounds(bounds, { 
+            padding: 50,
+            duration: 800
+          })
+        }
       }
     }
 
     fetchRoute()
-  }, [mapLoaded, startLocation, waypoints, pois, onPoiSelect])
+  }, [mapLoaded, startLocation, waypoints, mode, pois, onPoiSelect])
+
+  // Separate effect for handling zoom-based visibility of time badges
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const updateTimeBadgesVisibility = () => {
+      const zoom = map.current?.getZoom() || 0
+      
+      timeBadgeElementsRef.current.forEach(badge => {
+        if (zoom >= 14) {
+          badge.style.display = 'block'
+        } else {
+          badge.style.display = 'none'
+        }
+      })
+    }
+
+    // Add zoom listener
+    map.current.on('zoom', updateTimeBadgesVisibility)
+    
+    // Initial check after a short delay to ensure badges are created
+    const initialCheck = setTimeout(() => {
+      updateTimeBadgesVisibility()
+    }, 500)
+
+    // Cleanup
+    return () => {
+      clearTimeout(initialCheck)
+      map.current?.off('zoom', updateTimeBadgesVisibility)
+    }
+  }, [mapLoaded])
 
   const handleClose = () => {
     setLocalSelectedPoi(null)
-    onClose()
+    onClose?.()
   }
 
+  // Preview mode rendering
+  if (mode === 'preview') {
+    return (
+      <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <span>🗺️</span>
+            <span>Route Preview</span>
+          </h2>
+        </div>
+        <div className="relative">
+          <div 
+            ref={mapContainer} 
+            className="w-full h-[400px] cursor-pointer"
+            onClick={onMapClick}
+          />
+          
+          {!mapLoaded && !mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading map...</p>
+              </div>
+            </div>
+          )}
+          
+          {mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
+              <div className="text-center">
+                <div className="text-6xl mb-4">📍</div>
+                <p className="text-gray-600">Map preview unavailable</p>
+                <p className="text-sm text-gray-500 mt-2">The route will still work in navigation</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Fullscreen mode rendering
   if (!isOpen) return null
 
   return (
@@ -420,7 +649,6 @@ export default function RouteMapOverlay({
           {localSelectedPoi && (
             <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl max-h-[40vh] overflow-y-auto z-10">
               <div className="p-6">
-                {/* Close button for bottom sheet */}
                 <button
                   onClick={() => setLocalSelectedPoi(null)}
                   className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -431,9 +659,7 @@ export default function RouteMapOverlay({
                   </svg>
                 </button>
 
-                {/* POI Details */}
                 <div className="pr-12">
-                  {/* Icon and Category */}
                   <div className="flex items-center gap-2 mb-3">
                     {localSelectedPoi.poiFields.poiIcon && (
                       <span className="text-3xl">{localSelectedPoi.poiFields.poiIcon}</span>
@@ -445,19 +671,16 @@ export default function RouteMapOverlay({
                     )}
                   </div>
 
-                  {/* Title */}
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">
                     {localSelectedPoi.title}
                   </h3>
 
-                  {/* Description */}
                   {localSelectedPoi.poiFields.poiDescription && (
                     <p className="text-gray-700 leading-relaxed mb-4">
                       {localSelectedPoi.poiFields.poiDescription}
                     </p>
                   )}
 
-                  {/* Image if available */}
                   {localSelectedPoi.poiFields.poiImage?.node && (
                     <div className="mt-4 rounded-xl overflow-hidden">
                       <img
@@ -468,7 +691,6 @@ export default function RouteMapOverlay({
                     </div>
                   )}
 
-                  {/* Coordinates */}
                   <div className="mt-4 text-sm text-gray-500">
                     📍 {localSelectedPoi.poiFields.poiLatitude.toFixed(6)}, {localSelectedPoi.poiFields.poiLongitude.toFixed(6)}
                   </div>
