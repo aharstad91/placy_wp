@@ -133,15 +133,81 @@ export default function RouteMap({
     markersRef.current.forEach(marker => marker.remove())
     markersRef.current = []
 
-    // Add START LOCATION marker (green flag)
+    // Add START LOCATION marker with same design as POI markers
     const startMarkerEl = document.createElement('div')
-    startMarkerEl.innerHTML = '🚩' // Green flag emoji
     startMarkerEl.style.cssText = `
-      font-size: 32px;
       cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
+    `
+
+    // Flag emoji as "image"
+    const startIcon = document.createElement('div')
+    startIcon.innerHTML = '🚩'
+    startIcon.style.cssText = `
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     `
-    startMarkerEl.title = startLocation.name
+    startMarkerEl.appendChild(startIcon)
+
+    // Horizontal wrapper for badge and label
+    const startWrapper = document.createElement('div')
+    startWrapper.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px 2px 2px;
+      background-color: rgba(0,0,0,0.15);
+      border-radius: 12px;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    `
+
+    // Start badge with flag icon
+    const startBadge = document.createElement('div')
+    startBadge.textContent = '⚑'
+    startBadge.style.cssText = `
+      width: 18px;
+      height: 18px;
+      background-color: #10b981;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+      line-height: 18px;
+    `
+    startWrapper.appendChild(startBadge)
+
+    // Start label
+    const startLabel = document.createElement('div')
+    startLabel.textContent = startLocation.name
+    startLabel.style.cssText = `
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      text-align: left;
+      max-width: 100px;
+      line-height: 1.3;
+      text-shadow: 
+        0 1px 2px rgba(0,0,0,0.8),
+        0 2px 4px rgba(0,0,0,0.5);
+    `
+    startWrapper.appendChild(startLabel)
+    startMarkerEl.appendChild(startWrapper)
     
     const startMarker = new mapboxgl.Marker({ element: startMarkerEl, anchor: 'bottom' })
       .setLngLat([startLocation.longitude, startLocation.latitude])
@@ -158,24 +224,18 @@ export default function RouteMap({
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        gap: 2px;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
       `
 
+      let horizontalWrapper: HTMLElement | null = null
+
       if (waypoint.image) {
-        // Wrapper for image and badge positioned outside
-        const imageWrapper = document.createElement('div')
-        imageWrapper.style.cssText = `
-          position: relative;
-          width: 36px;
-          height: 36px;
-        `
-        
-        // Circular image container
+        // Circular image container at top (centered)
         const imageContainer = document.createElement('div')
         imageContainer.style.cssText = `
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           overflow: hidden;
           border: 2px solid white;
@@ -191,32 +251,41 @@ export default function RouteMap({
           object-fit: cover;
         `
         imageContainer.appendChild(img)
-        imageWrapper.appendChild(imageContainer)
+        container.appendChild(imageContainer)
 
-        // Number badge OUTSIDE the circular image
+        // Horizontal wrapper for badge and label (below image) - single combined element
+        horizontalWrapper = document.createElement('div')
+        horizontalWrapper.style.cssText = `
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 6px 2px 2px;
+          background-color: rgba(0,0,0,0.15);
+          border-radius: 12px;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+        `
+
+        // Number badge to the LEFT of label
         const badge = document.createElement('div')
         badge.textContent = (index + 1).toString()
         badge.style.cssText = `
-          position: absolute;
-          top: -6px;
-          right: -6px;
-          width: 20px;
-          height: 20px;
+          width: 18px;
+          height: 18px;
           background-color: #3b82f6;
           color: white;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: bold;
           border: 2px solid white;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-          z-index: 10;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          flex-shrink: 0;
+          line-height: 18px;
         `
-        imageWrapper.appendChild(badge)
-        
-        container.appendChild(imageWrapper)
+        horizontalWrapper.appendChild(badge)
       } else {
         // No image, show numbered circle
         const numberCircle = document.createElement('div')
@@ -238,30 +307,45 @@ export default function RouteMap({
         container.appendChild(numberCircle)
       }
 
-      // Label text with white color, strong shadow and semi-transparent background
+      // Label text with white color and lighter shadow
       const labelEl = document.createElement('div')
       labelEl.textContent = waypoint.name
-      labelEl.style.cssText = `
-        font-size: 12px;
-        font-weight: 700;
-        color: white;
-        text-align: center;
-        max-width: 100px;
-        line-height: 1.3;
-        text-shadow: 
-          0 0 4px rgba(0,0,0,0.9),
-          0 1px 3px rgba(0,0,0,0.9),
-          0 2px 6px rgba(0,0,0,0.8),
-          1px 1px 3px rgba(0,0,0,0.9),
-          -1px -1px 3px rgba(0,0,0,0.9),
-          2px 2px 4px rgba(0,0,0,0.7);
-        padding: 3px 6px;
-        background-color: rgba(0,0,0,0.25);
-        border-radius: 4px;
-        backdrop-filter: blur(2px);
-      `
-
-      container.appendChild(labelEl)
+      
+      if (waypoint.image && horizontalWrapper) {
+        // For image markers, label is part of horizontal wrapper (no separate background)
+        labelEl.style.cssText = `
+          font-size: 12px;
+          font-weight: 700;
+          color: white;
+          text-align: left;
+          max-width: 100px;
+          line-height: 1.3;
+          text-shadow: 
+            0 1px 2px rgba(0,0,0,0.8),
+            0 2px 4px rgba(0,0,0,0.5);
+        `
+        horizontalWrapper.appendChild(labelEl)
+        container.appendChild(horizontalWrapper)
+      } else {
+        // For non-image markers, keep vertical layout with background
+        labelEl.style.cssText = `
+          font-size: 12px;
+          font-weight: 700;
+          color: white;
+          text-align: center;
+          max-width: 100px;
+          line-height: 1.3;
+          text-shadow: 
+            0 1px 2px rgba(0,0,0,0.8),
+            0 2px 4px rgba(0,0,0,0.5);
+          padding: 3px 6px;
+          background-color: rgba(0,0,0,0.15);
+          border-radius: 4px;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+        `
+        container.appendChild(labelEl)
+      }
 
       // Add hover effect - subtle scale on image/circle only
       if (waypoint.image) {
@@ -295,52 +379,199 @@ export default function RouteMap({
       markersRef.current.push(marker)
     })
 
-    // Fetch and draw route (complete loop: start -> waypoints -> back to start)
+    // Fetch and draw route in three segments with different styling
     const fetchRoute = async () => {
-      const coordinates = [
+      // Segment 1: Start to first POI (approach route - dashed)
+      const approachCoords = [
         [startLocation.longitude, startLocation.latitude],
-        ...waypoints.map(wp => [wp.longitude, wp.latitude]),
-        [startLocation.longitude, startLocation.latitude] // Return to start
+        [waypoints[0].longitude, waypoints[0].latitude]
       ]
 
-      const coordinatesString = coordinates.map(c => `${c[0]},${c[1]}`).join(';')
-      const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordinatesString}?geometries=geojson&access_token=${mapboxgl.accessToken}`
+      // Segment 2: POI to POI (main route - solid)
+      const mainCoords = waypoints.map(wp => [wp.longitude, wp.latitude])
 
-      try {
+      // Segment 3: Last POI back to start (return route - dashed)
+      const returnCoords = [
+        [waypoints[waypoints.length - 1].longitude, waypoints[waypoints.length - 1].latitude],
+        [startLocation.longitude, startLocation.latitude]
+      ]
+
+      // Fetch all three segments
+      const fetchSegment = async (coords: number[][]) => {
+        const coordsString = coords.map(c => `${c[0]},${c[1]}`).join(';')
+        const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordsString}?geometries=geojson&access_token=${mapboxgl.accessToken}`
         const response = await fetch(url)
         const data = await response.json()
+        return data.routes?.[0]?.geometry
+      }
 
-        if (data.routes && data.routes.length > 0 && map.current) {
-          const route = data.routes[0].geometry
+      try {
+        const [approachRoute, mainRoute, returnRoute] = await Promise.all([
+          fetchSegment(approachCoords),
+          fetchSegment(mainCoords),
+          fetchSegment(returnCoords)
+        ])
 
-          if (map.current.getSource('route')) {
-            map.current.removeLayer('route')
-            map.current.removeSource('route')
+        if (map.current) {
+          // Remove old route layers (including borders)
+          const layersToRemove = [
+            'route-approach', 'route-approach-border',
+            'route-main', 'route-main-border',
+            'route-return', 'route-return-border'
+          ]
+          
+          layersToRemove.forEach(layerId => {
+            if (map.current?.getLayer(layerId)) {
+              map.current.removeLayer(layerId)
+            }
+          })
+          
+          const sourcesToRemove = ['route-approach', 'route-main', 'route-return']
+          sourcesToRemove.forEach(sourceId => {
+            if (map.current?.getSource(sourceId)) {
+              map.current.removeSource(sourceId)
+            }
+          })
+
+          // Add approach route (lighter blue with dark border)
+          if (approachRoute) {
+            map.current.addSource('route-approach', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: approachRoute
+              }
+            })
+
+            // Border/outline layer (darker blue, thicker)
+            map.current.addLayer({
+              id: 'route-approach-border',
+              type: 'line',
+              source: 'route-approach',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#1e40af',
+                'line-width': 6,
+                'line-opacity': 0.8
+              }
+            })
+
+            // Main line layer (light blue, thinner - on top)
+            map.current.addLayer({
+              id: 'route-approach',
+              type: 'line',
+              source: 'route-approach',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#bfdbfe',
+                'line-width': 4,
+                'line-opacity': 0.9
+              }
+            })
           }
 
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: route
-            }
-          })
+          // Add main route (blue with dark border)
+          if (mainRoute) {
+            map.current.addSource('route-main', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: mainRoute
+              }
+            })
 
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#3b82f6',
-              'line-width': 4,
-              'line-opacity': 0.8
-            }
-          })
+            // Border/outline layer (darker blue, thicker)
+            map.current.addLayer({
+              id: 'route-main-border',
+              type: 'line',
+              source: 'route-main',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#1e40af',
+                'line-width': 6,
+                'line-opacity': 0.8
+              }
+            })
+
+            // Main line layer (blue, thinner - on top)
+            map.current.addLayer({
+              id: 'route-main',
+              type: 'line',
+              source: 'route-main',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#3b82f6',
+                'line-width': 4,
+                'line-opacity': 0.9
+              }
+            })
+          }
+
+          // Add return route (lighter blue with dark border)
+          if (returnRoute) {
+            map.current.addSource('route-return', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: returnRoute
+              }
+            })
+
+            // Border/outline layer (darker blue, thicker)
+            map.current.addLayer({
+              id: 'route-return-border',
+              type: 'line',
+              source: 'route-return',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#1e40af',
+                'line-width': 6,
+                'line-opacity': 0.8
+              }
+            })
+
+            // Main line layer (light blue, thinner - on top)
+            map.current.addLayer({
+              id: 'route-return',
+              type: 'line',
+              source: 'route-return',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#bfdbfe',
+                'line-width': 4,
+                'line-opacity': 0.9
+              }
+            })
+          }
+
+          // Combine all route coordinates for bounds and time badges
+          const allRouteCoords = [
+            ...(approachRoute?.coordinates || []),
+            ...(mainRoute?.coordinates || []),
+            ...(returnRoute?.coordinates || [])
+          ]
+          const route = { coordinates: allRouteCoords }
 
           // Add time badges only in fullscreen mode
           const routeCoords = route.coordinates
@@ -476,34 +707,106 @@ export default function RouteMap({
       } catch (error) {
         console.error('Failed to fetch route:', error)
         
-        // Fallback for preview mode
-        if (mode === 'preview') {
-          const coordinates = [
-            [startLocation.longitude, startLocation.latitude],
-            ...waypoints.map(wp => [wp.longitude, wp.latitude])
+        // Fallback: draw straight lines between points
+        if (map.current) {
+          // Remove old layers (including borders)
+          const layersToRemove = [
+            'route-approach', 'route-approach-border',
+            'route-main', 'route-main-border',
+            'route-return', 'route-return-border'
           ]
+          
+          layersToRemove.forEach(layerId => {
+            if (map.current?.getLayer(layerId)) {
+              map.current.removeLayer(layerId)
+            }
+          })
+          
+          const sourcesToRemove = ['route-approach', 'route-main', 'route-return']
+          sourcesToRemove.forEach(sourceId => {
+            if (map.current?.getSource(sourceId)) {
+              map.current.removeSource(sourceId)
+            }
+          })
 
-          if (map.current?.getSource('route')) {
-            map.current.removeLayer('route')
-            map.current.removeSource('route')
-          }
-
-          map.current?.addSource('route', {
+          // Approach route (light blue with border)
+          map.current.addSource('route-approach', {
             type: 'geojson',
             data: {
               type: 'Feature',
               properties: {},
               geometry: {
                 type: 'LineString',
-                coordinates: coordinates
+                coordinates: [
+                  [startLocation.longitude, startLocation.latitude],
+                  [waypoints[0].longitude, waypoints[0].latitude]
+                ]
               }
             }
           })
 
-          map.current?.addLayer({
-            id: 'route',
+          map.current.addLayer({
+            id: 'route-approach-border',
             type: 'line',
-            source: 'route',
+            source: 'route-approach',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#1e40af',
+              'line-width': 6,
+              'line-opacity': 0.8
+            }
+          })
+
+          map.current.addLayer({
+            id: 'route-approach',
+            type: 'line',
+            source: 'route-approach',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#bfdbfe',
+              'line-width': 4,
+              'line-opacity': 0.9
+            }
+          })
+
+          // Main route (blue with border)
+          map.current.addSource('route-main', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: waypoints.map(wp => [wp.longitude, wp.latitude])
+              }
+            }
+          })
+
+          map.current.addLayer({
+            id: 'route-main-border',
+            type: 'line',
+            source: 'route-main',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#1e40af',
+              'line-width': 6,
+              'line-opacity': 0.8
+            }
+          })
+
+          map.current.addLayer({
+            id: 'route-main',
+            type: 'line',
+            source: 'route-main',
             layout: {
               'line-join': 'round',
               'line-cap': 'round'
@@ -511,13 +814,61 @@ export default function RouteMap({
             paint: {
               'line-color': '#3b82f6',
               'line-width': 4,
+              'line-opacity': 0.9
+            }
+          })
+
+          // Return route (light blue with border)
+          map.current.addSource('route-return', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [waypoints[waypoints.length - 1].longitude, waypoints[waypoints.length - 1].latitude],
+                  [startLocation.longitude, startLocation.latitude]
+                ]
+              }
+            }
+          })
+
+          map.current.addLayer({
+            id: 'route-return-border',
+            type: 'line',
+            source: 'route-return',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#1e40af',
+              'line-width': 6,
               'line-opacity': 0.8
             }
           })
 
+          map.current.addLayer({
+            id: 'route-return',
+            type: 'line',
+            source: 'route-return',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#bfdbfe',
+              'line-width': 4,
+              'line-opacity': 0.9
+            }
+          })
+
+          // Fit bounds to all points
           const bounds = new mapboxgl.LngLatBounds()
-          coordinates.forEach(coord => bounds.extend(coord as [number, number]))
-          map.current?.fitBounds(bounds, { 
+          bounds.extend([startLocation.longitude, startLocation.latitude])
+          waypoints.forEach(wp => bounds.extend([wp.longitude, wp.latitude]))
+          map.current.fitBounds(bounds, { 
             padding: 50,
             duration: 800
           })
