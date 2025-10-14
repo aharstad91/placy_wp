@@ -59,6 +59,16 @@ export interface POI {
   slug: string
   poiFields: {
     poiDescription: string
+    poiImage?: {
+      node: {
+        sourceUrl: string
+        altText: string
+        mediaDetails?: {
+          width: number
+          height: number
+        }
+      }
+    }
     poiCategory?: string
     poiIcon?: string
     poiLatitude: number
@@ -164,4 +174,63 @@ export interface ThemeStory {
   slug: string
   date: string
   themeStoryFields: ThemeStoryFields
+}
+
+// Route Story Types (Guided tours with waypoints)
+export interface RouteWaypoint {
+  waypointOrder: number
+  relatedPoi: {
+    nodes: POI[]
+  }
+  description?: string
+  estimatedTime?: number
+  audioGuideUrl?: string
+}
+
+export interface RouteStoryFields {
+  relatedProsjekt?: {
+    nodes: Array<{
+      id: string
+      title: string
+      slug: string
+    }>
+  }
+  routeDuration: number // minutes
+  routeDistance: number // km
+  routeDifficulty: 'easy' | 'moderate' | 'challenging'
+  routeType: 'walking' | 'cycling' | 'driving'
+  startLocation: {
+    name: string
+    latitude: number
+    longitude: number
+  }
+  heroSection: {
+    title: string
+    subtitle?: string
+    heroImage?: {
+      node: {
+        sourceUrl: string
+        altText: string
+        mediaDetails?: {
+          width: number
+          height: number
+        }
+      }
+    }
+    videoEmbedUrl?: string
+  }
+  routeWaypoints: RouteWaypoint[]
+  practicalInfo?: {
+    bestSeason?: string
+    accessibilityNotes?: string
+    priceInfo?: string
+  }
+}
+
+export interface RouteStory {
+  id: string
+  title: string
+  slug: string
+  date: string
+  routeStoryFields: RouteStoryFields
 }

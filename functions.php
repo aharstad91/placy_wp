@@ -254,7 +254,31 @@ function placy_register_cpts() {
         'menu_position' => 7.5,
     ));
 
-    // 5. POI (Points of Interest) - Gjenbrukbare steder/lokasjoner
+    // 5. ROUTE STORIES - Guided walking/cycling tours with waypoints
+    register_post_type('route_story', array(
+        'labels' => array(
+            'name' => 'Route Stories',
+            'singular_name' => 'Route Story',
+            'add_new' => 'Add New Route',
+            'add_new_item' => 'Add New Route Story',
+            'edit_item' => 'Edit Route Story',
+            'view_item' => 'View Route Story',
+            'all_items' => 'All Route Stories',
+            'search_items' => 'Search Route Stories',
+        ),
+        'public' => true,
+        'show_in_rest' => true,
+        'show_in_graphql' => true,
+        'graphql_single_name' => 'routeStory',
+        'graphql_plural_name' => 'routeStories',
+        'supports' => array('title', 'custom-fields'), // Title + ACF fields only
+        'has_archive' => false, // No archive, accessed via /[project]/routes/[route]
+        'rewrite' => false, // Custom rewrite handled by Next.js
+        'menu_icon' => 'dashicons-location-alt',
+        'menu_position' => 7.7,
+    ));
+
+    // 6. POI (Points of Interest) - Gjenbrukbare steder/lokasjoner
     register_post_type('poi', array(
         'labels' => array(
             'name' => 'POI (Steder)',
@@ -581,6 +605,17 @@ function placy_register_acf_fields() {
                 'ui_off_text' => 'Nei - Standard prosjekt',
                 'show_in_graphql' => 1,
             ),
+            array(
+                'key' => 'field_prosjekt_frontend_url',
+                'label' => '🔗 Frontend URL',
+                'name' => 'frontend_url',
+                'type' => 'url',
+                'instructions' => 'Full URL til frontend-siden (auto-generert basert på slug)',
+                'default_value' => '',
+                'readonly' => 1,
+                'disabled' => 1,
+                'show_in_graphql' => 0,
+            ),
         ),
         'location' => array(
             array(
@@ -612,6 +647,17 @@ function placy_register_acf_fields() {
                 'type' => 'textarea',
                 'rows' => 4,
                 'instructions' => 'Kort beskrivelse av stedet',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_poi_image',
+                'label' => 'POI Bilde',
+                'name' => 'poi_image',
+                'type' => 'image',
+                'instructions' => 'Bilde av stedet/POI (vises i Route Stops)',
+                'return_format' => 'array',
+                'preview_size' => 'medium',
+                'library' => 'all',
                 'show_in_graphql' => 1,
             ),
             array(
@@ -1082,8 +1128,423 @@ function placy_register_acf_fields() {
         'position' => 'acf_after_title',
         'label_placement' => 'top',
     ));
+
+    // ROUTE STORY FIELDS - Guided tours with waypoints
+    acf_add_local_field_group(array(
+        'key' => 'group_route_story',
+        'title' => 'Route Story Fields',
+        'fields' => array(
+            // Related Project
+            array(
+                'key' => 'field_route_related_prosjekt',
+                'label' => 'Related Project',
+                'name' => 'related_prosjekt',
+                'type' => 'post_object',
+                'instructions' => 'Select the project this route belongs to',
+                'required' => 1,
+                'post_type' => array('prosjekt'),
+                'return_format' => 'object',
+                'show_in_graphql' => 1,
+            ),
+            // Route Metadata
+            array(
+                'key' => 'field_route_duration',
+                'label' => 'Duration (minutes)',
+                'name' => 'route_duration',
+                'type' => 'number',
+                'instructions' => 'Estimated duration in minutes',
+                'required' => 1,
+                'min' => 1,
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_route_distance',
+                'label' => 'Distance (km)',
+                'name' => 'route_distance',
+                'type' => 'number',
+                'instructions' => 'Total distance in kilometers',
+                'required' => 1,
+                'min' => 0,
+                'step' => 0.1,
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_route_difficulty',
+                'label' => 'Difficulty',
+                'name' => 'route_difficulty',
+                'type' => 'select',
+                'instructions' => 'Physical difficulty level',
+                'required' => 1,
+                'choices' => array(
+                    'easy' => 'Easy',
+                    'moderate' => 'Moderate',
+                    'challenging' => 'Challenging',
+                ),
+                'default_value' => 'easy',
+                'show_in_graphql' => 1,
+            ),
+            array(
+                'key' => 'field_route_type',
+                'label' => 'Route Type',
+                'name' => 'route_type',
+                'type' => 'select',
+                'instructions' => 'Type of tour',
+                'required' => 1,
+                'choices' => array(
+                    'walking' => 'Walking Tour',
+                    'cycling' => 'Cycling Tour',
+                    'driving' => 'Driving Tour',
+                ),
+                'default_value' => 'walking',
+                'show_in_graphql' => 1,
+            ),
+            // Start Location
+            array(
+                'key' => 'field_route_start_location',
+                'label' => 'Start Location',
+                'name' => 'start_location',
+                'type' => 'group',
+                'instructions' => 'Where the route begins',
+                'show_in_graphql' => 1,
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_start_name',
+                        'label' => 'Location Name',
+                        'name' => 'name',
+                        'type' => 'text',
+                        'required' => 1,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_start_latitude',
+                        'label' => 'Latitude',
+                        'name' => 'latitude',
+                        'type' => 'number',
+                        'required' => 1,
+                        'step' => 0.000001,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_start_longitude',
+                        'label' => 'Longitude',
+                        'name' => 'longitude',
+                        'type' => 'number',
+                        'required' => 1,
+                        'step' => 0.000001,
+                        'show_in_graphql' => 1,
+                    ),
+                ),
+            ),
+            // Hero Section
+            array(
+                'key' => 'field_route_hero',
+                'label' => 'Hero Section',
+                'name' => 'hero_section',
+                'type' => 'group',
+                'instructions' => 'Top section with title, image, and optional video',
+                'show_in_graphql' => 1,
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_route_hero_title',
+                        'label' => 'Hero Title',
+                        'name' => 'title',
+                        'type' => 'text',
+                        'required' => 1,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_route_hero_subtitle',
+                        'label' => 'Hero Subtitle',
+                        'name' => 'subtitle',
+                        'type' => 'textarea',
+                        'rows' => 3,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_route_hero_image',
+                        'label' => 'Hero Image',
+                        'name' => 'hero_image',
+                        'type' => 'image',
+                        'instructions' => 'Main background image',
+                        'return_format' => 'array',
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_route_video_embed',
+                        'label' => 'Video Embed URL',
+                        'name' => 'video_embed_url',
+                        'type' => 'url',
+                        'instructions' => 'YouTube or Vimeo embed URL (optional Google Earth Studio flyover)',
+                        'show_in_graphql' => 1,
+                    ),
+                ),
+            ),
+            // Route Waypoints
+            array(
+                'key' => 'field_route_waypoints',
+                'label' => 'Route Waypoints',
+                'name' => 'route_waypoints',
+                'type' => 'repeater',
+                'instructions' => 'Sequential stops along the route',
+                'required' => 1,
+                'min' => 2,
+                'layout' => 'block',
+                'button_label' => 'Add Waypoint',
+                'show_in_graphql' => 1,
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_waypoint_order',
+                        'label' => 'Order',
+                        'name' => 'waypoint_order',
+                        'type' => 'number',
+                        'instructions' => 'Sequence number (1, 2, 3...)',
+                        'required' => 1,
+                        'min' => 1,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_waypoint_poi',
+                        'label' => 'Related POI',
+                        'name' => 'related_poi',
+                        'type' => 'post_object',
+                        'instructions' => 'Select POI for this waypoint',
+                        'required' => 1,
+                        'post_type' => array('poi'),
+                        'return_format' => 'object',
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_waypoint_description',
+                        'label' => 'Waypoint Description',
+                        'name' => 'description',
+                        'type' => 'textarea',
+                        'instructions' => 'What to do/see at this stop',
+                        'rows' => 4,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_waypoint_time',
+                        'label' => 'Time at Stop (minutes)',
+                        'name' => 'estimated_time',
+                        'type' => 'number',
+                        'instructions' => 'Suggested time to spend here',
+                        'min' => 1,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_waypoint_audio',
+                        'label' => 'Audio Guide URL',
+                        'name' => 'audio_guide_url',
+                        'type' => 'url',
+                        'instructions' => 'Optional audio narration for this waypoint',
+                        'show_in_graphql' => 1,
+                    ),
+                ),
+            ),
+            // Practical Info
+            array(
+                'key' => 'field_route_practical',
+                'label' => 'Practical Information',
+                'name' => 'practical_info',
+                'type' => 'group',
+                'instructions' => 'Additional details for planning',
+                'show_in_graphql' => 1,
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_route_season',
+                        'label' => 'Best Season',
+                        'name' => 'best_season',
+                        'type' => 'text',
+                        'instructions' => 'e.g., "Year-round" or "May-September"',
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_route_accessibility',
+                        'label' => 'Accessibility Notes',
+                        'name' => 'accessibility_notes',
+                        'type' => 'textarea',
+                        'instructions' => 'Wheelchair access, stairs, terrain notes',
+                        'rows' => 3,
+                        'show_in_graphql' => 1,
+                    ),
+                    array(
+                        'key' => 'field_route_price',
+                        'label' => 'Price Information',
+                        'name' => 'price_info',
+                        'type' => 'text',
+                        'instructions' => 'e.g., "Free" or "NOK 250 with guide"',
+                        'show_in_graphql' => 1,
+                    ),
+                ),
+            ),
+        ),
+        'location' => array(
+            array(
+                array(
+                    'param' => 'post_type',
+                    'operator' => '==',
+                    'value' => 'route_story',
+                ),
+            ),
+        ),
+        'show_in_graphql' => 1,
+        'graphql_field_name' => 'routeStoryFields',
+        'menu_order' => 0,
+        'position' => 'acf_after_title',
+        'label_placement' => 'top',
+    ));
 }
 add_action('acf/init', 'placy_register_acf_fields');
+
+/**
+ * AUTO-POPULATE FRONTEND URL FOR PROSJEKT
+ */
+function placy_populate_frontend_url($value, $post_id, $field) {
+    // Only for prosjekt post type
+    if (get_post_type($post_id) !== 'prosjekt') {
+        return $value;
+    }
+    
+    // Get the post slug
+    $post = get_post($post_id);
+    if (!$post) {
+        return $value;
+    }
+    
+    // Frontend base URL (change this to your production URL when deploying)
+    $frontend_base = 'http://localhost:3001';
+    
+    // Generate URL based on slug
+    $frontend_url = $frontend_base . '/' . $post->post_name;
+    
+    return $frontend_url;
+}
+add_filter('acf/load_value/name=frontend_url', 'placy_populate_frontend_url', 10, 3);
+
+/**
+ * ADD "VIEW ON FRONTEND" BUTTON TO PROSJEKT ADMIN
+ */
+function placy_add_frontend_view_button() {
+    global $post;
+    
+    if (get_post_type($post) === 'prosjekt') {
+        $frontend_base = 'http://localhost:3001';
+        $frontend_url = $frontend_base . '/' . $post->post_name;
+        ?>
+        <div id="placy-frontend-link" class="misc-pub-section">
+            <span style="display: inline-block; margin-right: 8px;">🌐</span>
+            <a href="<?php echo esc_url($frontend_url); ?>" target="_blank" style="font-weight: 600; color: #2271b1;">
+                View on Frontend
+            </a>
+            <span style="color: #999; margin-left: 8px;">↗</span>
+        </div>
+        <style>
+            #placy-frontend-link {
+                padding: 8px 12px;
+                border-top: 1px solid #ddd;
+            }
+            #placy-frontend-link a:hover {
+                color: #135e96;
+            }
+        </style>
+        <?php
+    }
+}
+add_action('post_submitbox_misc_actions', 'placy_add_frontend_view_button');
+
+/**
+ * ADD "VIEW ON FRONTEND" BUTTON TO STORY & TEMA-STORY ADMIN
+ */
+function placy_add_story_frontend_view_button() {
+    global $post;
+    
+    $post_type = get_post_type($post);
+    
+    if ($post_type === 'story' || $post_type === 'tema_story') {
+        // Get related prosjekt
+        $prosjekt = null;
+        
+        if ($post_type === 'story') {
+            $prosjekt = get_field('prosjekt', $post->ID);
+        } elseif ($post_type === 'tema_story') {
+            $prosjekt_connection = get_field('related_prosjekt', $post->ID);
+            if ($prosjekt_connection && is_array($prosjekt_connection) && !empty($prosjekt_connection)) {
+                $prosjekt = $prosjekt_connection[0]; // Get first related prosjekt
+            }
+        }
+        
+        if ($prosjekt) {
+            $prosjekt_slug = is_object($prosjekt) ? $prosjekt->post_name : '';
+            $frontend_base = 'http://localhost:3001';
+            $frontend_url = $frontend_base . '/' . $prosjekt_slug . '/' . $post->post_name;
+            
+            $type_label = $post_type === 'story' ? 'Prosjekt-Story' : 'Tema-Story';
+            ?>
+            <div id="placy-story-frontend-link" class="misc-pub-section">
+                <span style="display: inline-block; margin-right: 8px;">🌐</span>
+                <a href="<?php echo esc_url($frontend_url); ?>" target="_blank" style="font-weight: 600; color: #2271b1;">
+                    View <?php echo esc_html($type_label); ?> on Frontend
+                </a>
+                <span style="color: #999; margin-left: 8px;">↗</span>
+            </div>
+            <style>
+                #placy-story-frontend-link {
+                    padding: 8px 12px;
+                    border-top: 1px solid #ddd;
+                }
+                #placy-story-frontend-link a:hover {
+                    color: #135e96;
+                }
+            </style>
+            <?php
+        }
+    }
+}
+add_action('post_submitbox_misc_actions', 'placy_add_story_frontend_view_button');
+
+/**
+ * ADD "VIEW ON FRONTEND" BUTTON TO ROUTE STORY ADMIN
+ */
+function placy_add_route_frontend_view_button() {
+    global $post;
+    
+    if ($post && get_post_type($post) === 'route_story') {
+        // Get related prosjekt
+        $prosjekt_connection = get_field('related_prosjekt', $post->ID);
+        
+        $prosjekt = null;
+        if ($prosjekt_connection && is_array($prosjekt_connection) && !empty($prosjekt_connection)) {
+            $prosjekt = $prosjekt_connection[0]; // Get first related prosjekt
+        } elseif (is_object($prosjekt_connection)) {
+            $prosjekt = $prosjekt_connection;
+        }
+        
+        if ($prosjekt) {
+            $prosjekt_slug = is_object($prosjekt) ? $prosjekt->post_name : '';
+            $frontend_base = 'http://localhost:3001';
+            $frontend_url = $frontend_base . '/' . $prosjekt_slug . '/routes/' . $post->post_name;
+            ?>
+            <div id="placy-route-frontend-link" class="misc-pub-section">
+                <span style="display: inline-block; margin-right: 8px;">🧭</span>
+                <a href="<?php echo esc_url($frontend_url); ?>" target="_blank" style="font-weight: 600; color: #2271b1;">
+                    View Route on Frontend
+                </a>
+                <span style="color: #999; margin-left: 8px;">↗</span>
+            </div>
+            <style>
+                #placy-route-frontend-link {
+                    padding: 8px 12px;
+                    border-top: 1px solid #ddd;
+                }
+                #placy-route-frontend-link a:hover {
+                    color: #135e96;
+                }
+            </style>
+            <?php
+        }
+    }
+}
+add_action('post_submitbox_misc_actions', 'placy_add_route_frontend_view_button');
 
 /**
  * ADMIN COLUMNS - BEDRE OVERSIKT

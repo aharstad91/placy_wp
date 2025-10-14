@@ -7,7 +7,7 @@ import { StorySection } from '@/types/wordpress'
 interface BottomNavbarProps {
   sectionsCount?: number
   sections?: StorySection[]
-  pageType?: 'landing-hub' | 'tema-story' | 'prosjekt-story'
+  pageType?: 'landing-hub' | 'tema-story' | 'prosjekt-story' | 'route-story'
   prosjektSlug?: string
   onFindThemeClick?: () => void
   onContactClick?: () => void
@@ -114,11 +114,11 @@ export default function BottomNavbar({
       {/* Bottom navbar container */}
       <div className="fixed bottom-0 left-0 right-0 z-50 pb-10 px-5">
         <div className="flex gap-3 max-w-md mx-auto">
-          {/* Tilbake til oversikt button (kun for tema-stories) */}
-          {pageType === 'tema-story' && prosjektSlug && (
-            <Link
+          {/* Tilbake til oversikt button (for tema-story og route-story) */}
+          {(pageType === 'tema-story' || pageType === 'route-story') && prosjektSlug && (
+            <Link 
               href={`/${prosjektSlug}`}
-              className="flex-1 min-w-[140px] h-11 px-4 bg-white/85 backdrop-blur-[32px] border border-white/30 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] hover:bg-[#059669]/90 hover:border-[#059669]/30 hover:shadow-[0_12px_40px_rgba(5,150,105,0.2),0_4px_16px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-400 flex items-center justify-center gap-2.5 group"
+              className="flex-shrink-0 px-4 h-11 bg-white/85 backdrop-blur-[32px] border border-white/30 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] hover:bg-[#059669]/90 hover:border-[#059669]/30 hover:shadow-[0_12px_40px_rgba(5,150,105,0.2),0_4px_16px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-400 flex items-center justify-center gap-2.5 group"
             >
               {/* Back arrow icon */}
               <div className="w-[26px] h-[26px] bg-[#059669]/10 group-hover:bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300">
@@ -134,13 +134,13 @@ export default function BottomNavbar({
               
               {/* Label */}
               <span className="text-sm font-semibold text-[#1d1d1f] group-hover:text-white tracking-tight transition-colors duration-300">
-                Tilbake til oversikt
+                {pageType === 'route-story' ? 'Back to Hub' : 'Tilbake til oversikt'}
               </span>
             </Link>
           )}
 
-          {/* Finn ditt tema button (skjules på landing-hub) */}
-          {pageType !== 'landing-hub' && (
+          {/* Finn ditt tema button (skjules på landing-hub og route-story) */}
+          {pageType !== 'landing-hub' && pageType !== 'route-story' && (
             <button
               onClick={handleFindTheme}
               className="flex-1 min-w-[140px] h-11 px-4 bg-white/85 backdrop-blur-[32px] border border-white/30 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] hover:bg-[#059669]/90 hover:border-[#059669]/30 hover:shadow-[0_12px_40px_rgba(5,150,105,0.2),0_4px_16px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-400 flex items-center justify-center gap-2.5 group"

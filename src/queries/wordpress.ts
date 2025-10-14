@@ -145,6 +145,16 @@ export const POI_FIELDS = gql`
     slug
     poiFields {
       poiDescription
+      poiImage {
+        node {
+          sourceUrl
+          altText
+          mediaDetails {
+            width
+            height
+          }
+        }
+      }
       poiCategory
       poiIcon
       poiLatitude
@@ -345,21 +355,13 @@ export const GET_THEME_STORY_BY_SLUG = gql`
 `
 
 // Get all Theme Stories for a specific prosjekt (for Landing Hub)
+// Note: We fetch all theme stories and filter client-side since WPGraphQL doesn't support metaQuery
 export const GET_THEME_STORIES_BY_PROJECT = gql`
-  query GetThemeStoriesByProject($prosjektSlug: String!, $first: Int = 50) {
+  query GetThemeStoriesByProject($first: Int = 50) {
     themeStories(
       first: $first
       where: { 
         status: PUBLISH
-        metaQuery: {
-          metaArray: [
-            {
-              key: "related_prosjekt"
-              value: $prosjektSlug
-              compare: LIKE
-            }
-          ]
-        }
       }
     ) {
       nodes {
@@ -386,6 +388,135 @@ export const GET_THEME_STORIES_BY_PROJECT = gql`
             }
             title
             description
+          }
+        }
+      }
+    }
+  }
+`
+
+// Get Route Story by slug
+export const GET_ROUTE_STORY_BY_SLUG = gql`
+  query GetRouteStoryBySlug($slug: ID!) {
+    routeStory(id: $slug, idType: SLUG) {
+      id
+      title
+      slug
+      date
+      routeStoryFields {
+        relatedProsjekt {
+          nodes {
+            ... on Prosjekt {
+              id
+              title
+              slug
+            }
+          }
+        }
+        routeDuration
+        routeDistance
+        routeDifficulty
+        routeType
+        startLocation {
+          name
+          latitude
+          longitude
+        }
+        heroSection {
+          title
+          subtitle
+          heroImage {
+            node {
+              sourceUrl
+              altText
+              mediaDetails {
+                width
+                height
+              }
+            }
+          }
+          videoEmbedUrl
+        }
+        routeWaypoints {
+          waypointOrder
+          relatedPoi {
+            nodes {
+              ... on Poi {
+                id
+                title
+                slug
+                poiFields {
+                  poiDescription
+                  poiImage {
+                    node {
+                      sourceUrl
+                      altText
+                      mediaDetails {
+                        width
+                        height
+                      }
+                    }
+                  }
+                  poiLatitude
+                  poiLongitude
+                  poiCategory
+                  poiIcon
+                }
+              }
+            }
+          }
+          description
+          estimatedTime
+          audioGuideUrl
+        }
+        practicalInfo {
+          bestSeason
+          accessibilityNotes
+          priceInfo
+        }
+      }
+    }
+  }
+`
+
+// Get all Route Stories for a specific prosjekt (for Landing Hub)
+// Note: We fetch all route stories and filter client-side since WPGraphQL doesn't support metaQuery
+export const GET_ROUTE_STORIES_BY_PROJECT = gql`
+  query GetRouteStoriesByProject($first: Int = 50) {
+    routeStories(
+      first: $first
+      where: { 
+        status: PUBLISH
+      }
+    ) {
+      nodes {
+        id
+        title
+        slug
+        date
+        routeStoryFields {
+          relatedProsjekt {
+            nodes {
+              ... on Prosjekt {
+                id
+                title
+                slug
+              }
+            }
+          }
+          routeDuration
+          routeDistance
+          routeDifficulty
+          routeType
+          heroSection {
+            title
+            subtitle
+            heroImage {
+              node {
+                sourceUrl
+                altText
+              }
+            }
           }
         }
       }
