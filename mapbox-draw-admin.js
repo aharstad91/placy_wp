@@ -26,6 +26,19 @@
     }
 
     initDrawInterface();
+    
+    // ACF fields may load after document ready, so add button with delay
+    setTimeout(function() {
+      addExportButton();
+    }, 500);
+    
+    // Try again after a longer delay if ACF is slow
+    setTimeout(function() {
+      if ($('#export-earth-studio').length === 0) {
+        console.log('Retrying addExportButton...');
+        addExportButton();
+      }
+    }, 2000);
   });
 
   /**
@@ -144,6 +157,79 @@
     
     $('body').append(modalHTML);
     modal = $('#mapbox-draw-modal');
+  }
+  
+  /**
+   * Add Export Earth Studio Button - SIMPLIFIED VERSION
+   */
+  function addExportButton() {
+    console.log('=== addExportButton START ===');
+    
+    // AGGRESSIVE cleanup - remove ALL export buttons first
+    console.log('Removing existing buttons...');
+    $('button').each(function() {
+      const buttonText = $(this).text();
+      if (buttonText.includes('Export for Google') || buttonText.includes('Earth Studio')) {
+        console.log('Removing button:', buttonText);
+        $(this).closest('div').remove(); // Remove wrapper too
+        $(this).remove();
+      }
+    });
+    
+    // Wait a moment for cleanup
+    setTimeout(function() {
+      console.log('Creating new export button...');
+      
+      // Find the Route Waypoints field - try different approaches
+      let $targetField = null;
+      
+      // Try 1: Direct data-name
+      $targetField = $('.acf-field[data-name="route_waypoints"]');
+      console.log('Try 1 - data-name selector found:', $targetField.length);
+      
+      if ($targetField.length === 0) {
+        // Try 2: Look for field with "Route Waypoints" label
+        $targetField = $('.acf-field .acf-label:contains("Route Waypoints")').closest('.acf-field');
+        console.log('Try 2 - label contains found:', $targetField.length);
+      }
+      
+      if ($targetField.length > 0) {
+        // Use the FIRST match only
+        $targetField = $targetField.first();
+        console.log('Using field:', $targetField.attr('data-name'), $targetField.attr('data-key'));
+        
+        // Create button HTML
+        const buttonHTML = `
+          <div id="earth-studio-export-wrapper" style="margin: 15px 0; padding: 12px; background: #f0f0f1; border-radius: 4px;">
+            <button type="button" id="export-earth-studio" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 8px;">
+              <span class="dashicons dashicons-download"></span>
+              <span>Export for Google Earth Studio</span>
+            </button>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">
+              Export all waypoint coordinates to JSON for Google Earth Studio flyover generation.
+            </p>
+          </div>
+        `;
+        
+        // Insert button after the label
+        $targetField.find('.acf-label').first().after(buttonHTML);
+        
+        // Bind click event
+        $('#export-earth-studio').off('click').on('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('===EXPORT BUTTON CLICKED===');
+          exportForEarthStudio();
+          return false;
+        });
+        
+        console.log('✅ Export button added successfully!');
+      } else {
+        console.error('❌ Could not find Route Waypoints field');
+      }
+      
+      console.log('=== addExportButton END ===');
+    }, 100);
   }
 
   /**
@@ -705,6 +791,263 @@
     setTimeout(() => {
       $('.notice').fadeOut();
     }, 5000);
+  }
+
+  /**
+   * Export Waypoints for Google Earth Studio
+   */
+  async function exportForEarthStudio() {
+    console.log('exportForEarthStudio() START');
+    
+    try {
+      // Show loading state
+      const $button = $('#export-earth-studio');
+      const originalText = $button.html();
+      console.log('Button found:', $button.length);
+      console.log('Original button text:', originalText);
+      
+      $button.prop('disabled', true).html('<span class="dashicons dashicons-update" style="animation: rotation 2s infinite linear;"></span> Exporting...');
+      
+      // Collect waypoint data
+      console.log('Collecting waypoint data...');
+      const waypointData = await collectWaypointData();
+      console.log('Collected waypoints:', waypointData);
+      
+      if (!waypointData || waypointData.length === 0) {
+        console.log('No waypoints found!');
+        showNotice('No waypoints found. Please add waypoints before exporting.', 'error');
+        $button.prop('disabled', false).html(originalText);
+        return;
+      }
+      
+      console.log(`Found ${waypointData.length} waypoints, formatting JSON...`);
+      
+      // Format as Earth Studio JSON
+      const earthStudioJSON = formatEarthStudioJSON(waypointData);
+      console.log('Formatted JSON:', earthStudioJSON);
+      
+      // Download JSON file
+      console.log('Triggering download...');
+      downloadJSON(earthStudioJSON);
+      
+      // Show success message
+      showNotice(`Successfully exported ${waypointData.length} waypoints for Google Earth Studio!`, 'success');
+      
+      // Reset button
+      $button.prop('disabled', false).html(originalText);
+      
+      console.log('exportForEarthStudio() COMPLETE');
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      console.error('Error stack:', error.stack);
+      showNotice(`Export failed: ${error.message}`, 'error');
+      $('#export-earth-studio').prop('disabled', false).html('<span class="dashicons dashicons-download"></span> Export for Google Earth Studio');
+    }
+  }
+
+  /**
+   * Collect Waypoint Data from ACF Repeater
+   */
+  async function collectWaypointData() {
+    console.log('collectWaypointData() START');
+    const waypoints = [];
+    const $repeaterRows = $('.acf-field[data-name="route_waypoints"] .acf-row:not(.acf-clone)');
+    
+    console.log('Found repeater rows:', $repeaterRows.length);
+    
+    if ($repeaterRows.length === 0) {
+      console.log('No repeater rows found');
+      return waypoints;
+    }
+    
+    // Process each waypoint row
+    const promises = [];
+    $repeaterRows.each(function(index) {
+      const $row = $(this);
+      
+      // Try multiple selectors to find the POI select field
+      let $poiSelect = $row.find('select[data-name="related_poi"]');
+      if ($poiSelect.length === 0) {
+        $poiSelect = $row.find('select[name*="related_poi"]');
+      }
+      if ($poiSelect.length === 0) {
+        $poiSelect = $row.find('.acf-field[data-name="related_poi"] select');
+      }
+      
+      const poiId = $poiSelect.val();
+      
+      console.log(`Row ${index}:`);
+      console.log('  - Found select:', $poiSelect.length);
+      console.log('  - Select element:', $poiSelect[0]);
+      console.log('  - POI ID:', poiId);
+      
+      if (poiId) {
+        promises.push(
+          fetchPOICoordinates(poiId).then(poiData => {
+            console.log(`POI ${poiId} data:`, poiData);
+            if (poiData) {
+              return {
+                waypointNumber: index + 1,
+                poiId: poiId,
+                name: poiData.name,
+                latitude: poiData.latitude,
+                longitude: poiData.longitude,
+                description: poiData.description
+              };
+            }
+            return null;
+          })
+        );
+      }
+    });
+    
+    // Wait for all POI data to be fetched
+    const results = await Promise.all(promises);
+    
+    // Filter out null results (POIs without coordinates)
+    return results.filter(item => item !== null);
+  }
+
+  /**
+   * Fetch POI Coordinates via REST API
+   */
+  async function fetchPOICoordinates(poiId) {
+    try {
+      // Use GraphQL instead of REST API (ACF fields are exposed via WPGraphQL)
+      const baseUrl = window.location.origin + window.location.pathname.split('/wp-admin')[0];
+      const graphqlUrl = `${baseUrl}/graphql`;
+      
+      console.log(`Fetching POI ${poiId} via GraphQL from:`, graphqlUrl);
+      
+      const query = `
+        query GetPOI($id: ID!) {
+          poi(id: $id, idType: DATABASE_ID) {
+            id
+            title
+            poiFields {
+              poiLatitude
+              poiLongitude
+              poiDescription
+            }
+          }
+        }
+      `;
+      
+      const response = await fetch(graphqlUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          variables: { id: poiId.toString() }
+        })
+      });
+      
+      if (!response.ok) {
+        console.warn(`GraphQL request failed for POI ${poiId} - Status: ${response.status}`);
+        return null;
+      }
+      
+      const result = await response.json();
+      console.log(`POI ${poiId} GraphQL response:`, result);
+      
+      if (result.errors) {
+        console.error(`GraphQL errors for POI ${poiId}:`, result.errors);
+        return null;
+      }
+      
+      const poi = result.data?.poi;
+      if (!poi) {
+        console.warn(`POI ${poiId} not found in GraphQL response`);
+        return null;
+      }
+      
+      const poiFields = poi.poiFields || {};
+      const latitude = poiFields.poiLatitude;
+      const longitude = poiFields.poiLongitude;
+      
+      console.log(`POI ${poiId} extracted coords:`, {latitude, longitude});
+      
+      if (!latitude || !longitude) {
+        console.warn(`POI ${poiId} (${poi.title}) missing coordinates`);
+        return null;
+      }
+      
+      // Validate coordinates
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        console.warn(`POI ${poiId} has invalid coordinates: ${latitude}, ${longitude}`);
+        return null;
+      }
+      
+      return {
+        name: poi.title || `POI ${poiId}`,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        description: poiFields.poiDescription || ''
+      };
+      
+    } catch (error) {
+      console.error(`Error fetching POI ${poiId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Format data as Earth Studio JSON
+   */
+  function formatEarthStudioJSON(waypoints) {
+    // Get story title and slug
+    const storyTitle = $('#title').val() || 'Route Story';
+    const storySlug = $('#post_name').val() || $('#editable-post-name').text() || 'route-story';
+    
+    // Calculate recommended duration (3 seconds per waypoint)
+    const recommendedDuration = waypoints.length * 3;
+    
+    return {
+      projectName: `${storyTitle} - Flyover`,
+      projectSlug: storySlug,
+      exportDate: new Date().toISOString(),
+      totalWaypoints: waypoints.length,
+      recommendedDuration: recommendedDuration,
+      waypoints: waypoints,
+      settings: {
+        defaultAltitude: 300, // meters above ground
+        smoothing: 'high',
+        cameraMode: 'follow-path',
+        notes: 'Generated from Placy WP Route Story. Import into Google Earth Studio for automatic flyover generation.'
+      }
+    };
+  }
+
+  /**
+   * Download JSON file
+   */
+  function downloadJSON(data) {
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create temporary download link
+    const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const filename = `${data.projectSlug}-earth-studio-${timestamp}.json`;
+    
+    const $link = $('<a>')
+      .attr({
+        href: url,
+        download: filename
+      })
+      .css('display', 'none');
+    
+    $('body').append($link);
+    $link[0].click();
+    
+    // Cleanup
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      $link.remove();
+    }, 100);
   }
 
 })(jQuery);

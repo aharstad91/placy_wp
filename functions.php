@@ -85,12 +85,12 @@ function placy_admin_enqueue_mapbox_draw($hook) {
             '1.0.0'
         );
         
-        // Custom admin JS
+        // Custom admin JS (with cache-busting timestamp)
         wp_enqueue_script(
             'placy-mapbox-draw-admin',
             get_template_directory_uri() . '/mapbox-draw-admin.js',
             array('jquery', 'mapbox-gl', 'mapbox-draw'),
-            '1.0.0',
+            filemtime(get_template_directory() . '/mapbox-draw-admin.js'), // Cache bust with file modification time
             true
         );
         

@@ -44,6 +44,18 @@ if [ -f "$FRONTEND_DIR/screenshot.png" ]; then
     echo -e "${GREEN}✅ screenshot.png synced${NC}"
 fi
 
+# Sync mapbox-draw-admin.js (for Earth Studio export)
+if [ -f "$FRONTEND_DIR/mapbox-draw-admin.js" ]; then
+    cp "$FRONTEND_DIR/mapbox-draw-admin.js" "$BACKEND_DIR/mapbox-draw-admin.js"
+    echo -e "${GREEN}✅ mapbox-draw-admin.js synced${NC}"
+fi
+
+# Sync mapbox-draw-admin.css (for Mapbox Draw styling)
+if [ -f "$FRONTEND_DIR/mapbox-draw-admin.css" ]; then
+    cp "$FRONTEND_DIR/mapbox-draw-admin.css" "$BACKEND_DIR/mapbox-draw-admin.css"
+    echo -e "${GREEN}✅ mapbox-draw-admin.css synced${NC}"
+fi
+
 echo -e "\n${GREEN}✨ Backend sync complete!${NC}"
 echo -e "${BLUE}📍 WordPress: http://localhost:8888/placy-wp-backend/wp-admin${NC}"
 echo -e "${BLUE}🔌 GraphQL: http://localhost:8888/placy-wp-backend/graphql${NC}"
