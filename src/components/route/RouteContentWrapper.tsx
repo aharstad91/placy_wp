@@ -10,13 +10,22 @@ interface RouteContentWrapperProps {
     latitude: number
     longitude: number
     name: string
+    image?: string
+    includeApproachInRoute?: boolean
+    showReturnRoute?: boolean
   }
   waypoints: RouteWaypoint[]
+  routeDuration?: number
+  routeDistance?: number
+  routeDifficulty?: string
 }
 
 export default function RouteContentWrapper({
   startLocation,
-  waypoints
+  waypoints,
+  routeDuration,
+  routeDistance,
+  routeDifficulty
 }: RouteContentWrapperProps) {
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false)
   const [selectedPoi, setSelectedPoi] = useState<POI | null>(null)
@@ -43,10 +52,11 @@ export default function RouteContentWrapper({
 
   return (
     <>
-      {/* Route Preview Map */}
-      <div className="bg-white py-8">
+      {/* Route Preview Map - Hidden for now */}
+      {/* <div className="bg-gray-100 py-8">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">🗺️ Route Overview</h2>
+          
           <RouteMap
             mode="preview"
             startLocation={startLocation}
@@ -65,13 +75,21 @@ export default function RouteContentWrapper({
               })}
             onMapClick={handleMapClick}
           />
+          
+          <button
+            onClick={handleMapClick}
+            className="w-full bg-gray-800 hover:bg-black text-white py-3 px-4 rounded-lg font-bold text-sm transition-colors mt-4"
+          >
+            <span className="block w-full text-center">Open Interactive Route Map</span>
+          </button>
         </div>
-      </div>
+      </div> */}
 
       {/* Route Stops List */}
       <RouteTimeline 
         waypoints={waypoints}
         onWaypointClick={handleWaypointClick}
+        onMapClick={handleMapClick}
       />
 
       {/* Map Overlay Modal */}
@@ -96,6 +114,9 @@ export default function RouteContentWrapper({
               estimatedTime: wp.estimatedTime
             }
           })}
+        routeDuration={routeDuration}
+        routeDistance={routeDistance}
+        routeDifficulty={routeDifficulty}
       />
     </>
   )

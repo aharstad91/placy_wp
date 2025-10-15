@@ -11,6 +11,9 @@ interface RouteMapProps {
     latitude: number
     longitude: number
     name: string
+    image?: string
+    includeApproachInRoute?: boolean
+    showReturnRoute?: boolean
   }
   waypoints: Array<{
     latitude: number
@@ -28,6 +31,10 @@ interface RouteMapProps {
   pois?: POI[]
   selectedPoi?: POI | null
   onPoiSelect?: (poi: POI) => void
+  // Route metadata
+  routeDuration?: number
+  routeDistance?: number
+  routeDifficulty?: string
 }
 
 export default function RouteMap({
@@ -39,7 +46,10 @@ export default function RouteMap({
   onClose,
   pois = [],
   selectedPoi,
-  onPoiSelect
+  onPoiSelect,
+  routeDuration,
+  routeDistance,
+  routeDifficulty
 }: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -48,6 +58,7 @@ export default function RouteMap({
   const [localSelectedPoi, setLocalSelectedPoi] = useState<POI | null>(selectedPoi || null)
   const markersRef = useRef<mapboxgl.Marker[]>([])
   const timeBadgeElementsRef = useRef<HTMLElement[]>([])
+  const hasSetInitialBounds = useRef(false)
 
   // Update localSelectedPoi when selectedPoi prop changes
   useEffect(() => {
@@ -125,6 +136,24 @@ export default function RouteMap({
     }
   }, [mode, isOpen, startLocation.latitude, startLocation.longitude])
 
+  // Add click handler to close POI modal when clicking on map
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const handleMapClick = () => {
+      // Only close if a POI is selected and click is on map (not on markers)
+      if (localSelectedPoi) {
+        setLocalSelectedPoi(null)
+      }
+    }
+
+    map.current.on('click', handleMapClick)
+
+    return () => {
+      map.current?.off('click', handleMapClick)
+    }
+  }, [mapLoaded, localSelectedPoi])
+
   // Add markers and route when map is loaded
   useEffect(() => {
     if (!map.current || !mapLoaded) return
@@ -144,18 +173,31 @@ export default function RouteMap({
       filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
     `
 
-    // Flag emoji as "image"
+    // Start icon - use image if available, otherwise flag emoji
     const startIcon = document.createElement('div')
-    startIcon.innerHTML = '🚩'
-    startIcon.style.cssText = `
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-    `
+    if (startLocation.image) {
+      startIcon.innerHTML = `<img src="${startLocation.image}" alt="${startLocation.name}" style="width: 100%; height: 100%; object-fit: cover;" />`
+      startIcon.style.cssText = `
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        background-color: white;
+      `
+    } else {
+      startIcon.innerHTML = '🚩'
+      startIcon.style.cssText = `
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      `
+    }
     startMarkerEl.appendChild(startIcon)
 
     // Horizontal wrapper for badge and label
@@ -366,7 +408,8 @@ export default function RouteMap({
       // Click handler for fullscreen mode to show POI details
       if (mode === 'fullscreen' && pois[index] && onPoiSelect) {
         const poi = pois[index]
-        container.addEventListener('click', () => {
+        container.addEventListener('click', (e) => {
+          e.stopPropagation() // Prevent map click from triggering
           setLocalSelectedPoi(poi)
           onPoiSelect(poi)
         })
@@ -381,35 +424,54 @@ export default function RouteMap({
 
     // Fetch and draw route in three segments with different styling
     const fetchRoute = async () => {
-      // Segment 1: Start to first POI (approach route - dashed)
+      // Approach toggle: changes color (dark blue if part of route, light blue if not)
+      const approachIsMainRoute = startLocation.includeApproachInRoute === true
+      // Return toggle: show/hide (if true, show light blue line; if false, don't show)
+      const showReturn = startLocation.showReturnRoute === true
+
+      // Segment 1: Start to first POI (always drawn, style depends on toggle)
       const approachCoords = [
         [startLocation.longitude, startLocation.latitude],
         [waypoints[0].longitude, waypoints[0].latitude]
       ]
 
-      // Segment 2: POI to POI (main route - solid)
+      // Segment 2: POI to POI (main route - always solid dark blue)
+      // Note: Mapbox Directions API has a 25 waypoint limit per request
       const mainCoords = waypoints.map(wp => [wp.longitude, wp.latitude])
+      console.log(`🎯 Total waypoints for main route: ${mainCoords.length}`)
 
-      // Segment 3: Last POI back to start (return route - dashed)
-      const returnCoords = [
+      // Segment 3: Last POI back to start (conditional - only if showReturn is true)
+      const returnCoords = showReturn ? [
         [waypoints[waypoints.length - 1].longitude, waypoints[waypoints.length - 1].latitude],
         [startLocation.longitude, startLocation.latitude]
-      ]
+      ] : null
 
-      // Fetch all three segments
-      const fetchSegment = async (coords: number[][]) => {
+      // Fetch all segments
+      const fetchSegment = async (coords: number[][] | null, segmentName: string) => {
+        if (!coords) return null
+        
         const coordsString = coords.map(c => `${c[0]},${c[1]}`).join(';')
         const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordsString}?geometries=geojson&access_token=${mapboxgl.accessToken}`
+        
+        console.log(`🗺️ Fetching ${segmentName} route:`, coordsString)
+        
         const response = await fetch(url)
         const data = await response.json()
+        
+        if (data.code !== 'Ok') {
+          console.error(`❌ Mapbox Directions API error for ${segmentName}:`, data)
+          return null
+        }
+        
+        console.log(`✅ ${segmentName} route fetched successfully`)
         return data.routes?.[0]?.geometry
       }
 
       try {
         const [approachRoute, mainRoute, returnRoute] = await Promise.all([
-          fetchSegment(approachCoords),
-          fetchSegment(mainCoords),
-          fetchSegment(returnCoords)
+          fetchSegment(approachCoords, 'approach'),
+          fetchSegment(mainCoords, 'main'),
+          fetchSegment(returnCoords, 'return')
         ])
 
         if (map.current) {
@@ -433,7 +495,7 @@ export default function RouteMap({
             }
           })
 
-          // Add approach route (lighter blue with dark border)
+          // Add approach route (style depends on toggle)
           if (approachRoute) {
             map.current.addSource('route-approach', {
               type: 'geojson',
@@ -460,7 +522,7 @@ export default function RouteMap({
               }
             })
 
-            // Main line layer (light blue, thinner - on top)
+            // Main line layer (color depends on toggle: dark blue if part of route, light blue if not)
             map.current.addLayer({
               id: 'route-approach',
               type: 'line',
@@ -470,7 +532,7 @@ export default function RouteMap({
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': '#bfdbfe',
+                'line-color': approachIsMainRoute ? '#3b82f6' : '#bfdbfe',
                 'line-width': 4,
                 'line-opacity': 0.9
               }
@@ -521,7 +583,7 @@ export default function RouteMap({
             })
           }
 
-          // Add return route (lighter blue with dark border)
+          // Add return route (style depends on toggle)
           if (returnRoute) {
             map.current.addSource('route-return', {
               type: 'geojson',
@@ -548,7 +610,7 @@ export default function RouteMap({
               }
             })
 
-            // Main line layer (light blue, thinner - on top)
+            // Main line layer (always light blue - return is never part of main route)
             map.current.addLayer({
               id: 'route-return',
               type: 'line',
@@ -698,11 +760,16 @@ export default function RouteMap({
           const bounds = new mapboxgl.LngLatBounds()
           route.coordinates.forEach((coord: [number, number]) => bounds.extend(coord))
           const padding = mode === 'preview' ? 50 : 80
-          map.current.fitBounds(bounds, { 
-            padding,
-            duration: 800, // Smooth animation
-            essential: true // Animation will happen even if user prefers reduced motion
-          })
+          
+          // Only fit bounds on initial load, not when POI is selected
+          if (!hasSetInitialBounds.current) {
+            map.current.fitBounds(bounds, { 
+              padding,
+              duration: 800, // Smooth animation
+              essential: true // Animation will happen even if user prefers reduced motion
+            })
+            hasSetInitialBounds.current = true
+          }
         }
       } catch (error) {
         console.error('Failed to fetch route:', error)
@@ -864,14 +931,17 @@ export default function RouteMap({
             }
           })
 
-          // Fit bounds to all points
-          const bounds = new mapboxgl.LngLatBounds()
-          bounds.extend([startLocation.longitude, startLocation.latitude])
-          waypoints.forEach(wp => bounds.extend([wp.longitude, wp.latitude]))
-          map.current.fitBounds(bounds, { 
-            padding: 50,
-            duration: 800
-          })
+          // Fit bounds to all points - only on initial load
+          if (!hasSetInitialBounds.current) {
+            const bounds = new mapboxgl.LngLatBounds()
+            bounds.extend([startLocation.longitude, startLocation.latitude])
+            waypoints.forEach(wp => bounds.extend([wp.longitude, wp.latitude]))
+            map.current.fitBounds(bounds, { 
+              padding: 50,
+              duration: 800
+            })
+            hasSetInitialBounds.current = true
+          }
         }
       }
     }
@@ -919,12 +989,6 @@ export default function RouteMap({
   if (mode === 'preview') {
     return (
       <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <span>🗺️</span>
-            <span>Route Preview</span>
-          </h2>
-        </div>
         <div className="relative">
           <div 
             ref={mapContainer} 
@@ -969,49 +1033,79 @@ export default function RouteMap({
       {/* Modal Container */}
       <div className="fixed inset-0 z-[110] flex items-center justify-center">
         <div className="bg-white w-full h-full flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">🗺️ Interactive Route Map</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Click on markers to view details • {pois.length} waypoints
-              </p>
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Close map"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Map Container */}
-          <div className="flex-1 relative overflow-hidden">
+          {/* Map Container - 80vh when modal is open, 100vh when POI is selected */}
+          <div className={`relative overflow-hidden ${localSelectedPoi ? 'h-[60vh]' : 'h-[80vh]'}`}>
             <div 
               ref={mapContainer} 
               className="w-full h-full absolute inset-0"
             />
           </div>
 
-          {/* Bottom Sheet for Selected POI */}
-          {localSelectedPoi && (
-            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl max-h-[40vh] overflow-y-auto z-10">
-              <div className="p-6">
+          {/* Bottom Sheet - Show metadata when no POI selected, POI details when selected */}
+          {!localSelectedPoi ? (
+            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl h-[20vh] overflow-y-auto z-10">
+              {/* Metadata Bar */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  {routeDuration && (
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <span className="text-lg">⏱️</span>
+                      <span className="font-semibold">{routeDuration} min</span>
+                    </div>
+                  )}
+                  {routeDistance && (
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <span className="text-lg">📏</span>
+                      <span className="font-semibold">{routeDistance} km</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <span className="text-lg">📍</span>
+                    <span className="font-semibold">{waypoints.length} stops</span>
+                  </div>
+                  {routeDifficulty && (
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <span className="text-lg">⚡</span>
+                      <span className="font-semibold capitalize">{routeDifficulty}</span>
+                    </div>
+                  )}
+                </div>
                 <button
-                  onClick={() => setLocalSelectedPoi(null)}
-                  className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Close details"
+                  onClick={handleClose}
+                  className="p-2 hover:bg-gray-200 bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close map"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
+              </div>
 
-                <div className="pr-12">
-                  <div className="flex items-center gap-2 mb-3">
+              {/* Start Full Tour Button */}
+              <div className="px-6 pb-6">
+                <button
+                  onClick={() => {
+                    // Build multi-waypoint URL for Google Maps
+                    // Format: origin | waypoint1 | waypoint2 | ... | destination
+                    const origin = `${startLocation.latitude},${startLocation.longitude}`
+                    const destination = `${startLocation.latitude},${startLocation.longitude}` // Return to start
+                    const waypointsList = waypoints.map(wp => `${wp.latitude},${wp.longitude}`).join('|')
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsList}&travelmode=walking`
+                    window.open(mapsUrl, '_blank')
+                  }}
+                  className="w-full bg-[#059669] hover:bg-[#047857] text-white py-4 px-6 rounded-xl font-bold text-lg transition-colors shadow-lg flex items-center justify-center gap-3"
+                >
+                  <span className="text-2xl">🗺️</span>
+                  <span>Start Full Tour in Google Maps</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl h-[40vh] overflow-y-auto z-10">
+              {/* Header with title and close button */}
+              <div className="flex items-start justify-between px-6 pt-6 pb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
                     {localSelectedPoi.poiFields.poiIcon && (
                       <span className="text-3xl">{localSelectedPoi.poiFields.poiIcon}</span>
                     )}
@@ -1021,30 +1115,42 @@ export default function RouteMap({
                       </span>
                     )}
                   </div>
-
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-2xl font-bold text-gray-900">
                     {localSelectedPoi.title}
                   </h3>
+                </div>
+                <button
+                  onClick={() => setLocalSelectedPoi(null)}
+                  className="p-2 hover:bg-gray-200 bg-gray-100 rounded-full transition-colors flex-shrink-0 ml-4"
+                  aria-label="Close details"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-                  {localSelectedPoi.poiFields.poiDescription && (
-                    <p className="text-gray-700 leading-relaxed mb-4">
-                      {localSelectedPoi.poiFields.poiDescription}
-                    </p>
-                  )}
+              {/* Content */}
+              <div className="px-6 pb-6">
 
-                  {localSelectedPoi.poiFields.poiImage?.node && (
-                    <div className="mt-4 rounded-xl overflow-hidden">
-                      <img
-                        src={localSelectedPoi.poiFields.poiImage.node.sourceUrl}
-                        alt={localSelectedPoi.poiFields.poiImage.node.altText || localSelectedPoi.title}
-                        className="w-full h-48 object-cover"
-                      />
-                    </div>
-                  )}
+                {localSelectedPoi.poiFields.poiDescription && (
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    {localSelectedPoi.poiFields.poiDescription}
+                  </p>
+                )}
 
-                  <div className="mt-4 text-sm text-gray-500">
-                    📍 {localSelectedPoi.poiFields.poiLatitude.toFixed(6)}, {localSelectedPoi.poiFields.poiLongitude.toFixed(6)}
+                {localSelectedPoi.poiFields.poiImage?.node && (
+                  <div className="mt-4 rounded-xl overflow-hidden">
+                    <img
+                      src={localSelectedPoi.poiFields.poiImage.node.sourceUrl}
+                      alt={localSelectedPoi.poiFields.poiImage.node.altText || localSelectedPoi.title}
+                      className="w-full h-48 object-cover"
+                    />
                   </div>
+                )}
+
+                <div className="mt-4 text-sm text-gray-500">
+                  📍 {localSelectedPoi.poiFields.poiLatitude.toFixed(6)}, {localSelectedPoi.poiFields.poiLongitude.toFixed(6)}
                 </div>
               </div>
             </div>

@@ -184,7 +184,6 @@ export interface RouteWaypoint {
   }
   description?: string
   estimatedTime?: number
-  audioGuideUrl?: string
 }
 
 export interface RouteStoryFields {
@@ -203,6 +202,18 @@ export interface RouteStoryFields {
     name: string
     latitude: number
     longitude: number
+    image?: {
+      node: {
+        sourceUrl: string
+        altText: string
+        mediaDetails?: {
+          width: number
+          height: number
+        }
+      }
+    }
+    includeApproachInRoute?: boolean
+    showReturnRoute?: boolean
   }
   heroSection: {
     title: string

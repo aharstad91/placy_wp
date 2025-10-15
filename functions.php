@@ -1156,6 +1156,9 @@ function placy_register_acf_fields() {
                 'required' => 1,
                 'min' => 1,
                 'show_in_graphql' => 1,
+                'wrapper' => array(
+                    'width' => '25',
+                ),
             ),
             array(
                 'key' => 'field_route_distance',
@@ -1167,6 +1170,9 @@ function placy_register_acf_fields() {
                 'min' => 0,
                 'step' => 0.1,
                 'show_in_graphql' => 1,
+                'wrapper' => array(
+                    'width' => '25',
+                ),
             ),
             array(
                 'key' => 'field_route_difficulty',
@@ -1182,6 +1188,9 @@ function placy_register_acf_fields() {
                 ),
                 'default_value' => 'easy',
                 'show_in_graphql' => 1,
+                'wrapper' => array(
+                    'width' => '25',
+                ),
             ),
             array(
                 'key' => 'field_route_type',
@@ -1197,6 +1206,9 @@ function placy_register_acf_fields() {
                 ),
                 'default_value' => 'walking',
                 'show_in_graphql' => 1,
+                'wrapper' => array(
+                    'width' => '25',
+                ),
             ),
             // Start Location
             array(
@@ -1214,6 +1226,9 @@ function placy_register_acf_fields() {
                         'type' => 'text',
                         'required' => 1,
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '40',
+                        ),
                     ),
                     array(
                         'key' => 'field_start_latitude',
@@ -1223,6 +1238,9 @@ function placy_register_acf_fields() {
                         'required' => 1,
                         'step' => 0.000001,
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '30',
+                        ),
                     ),
                     array(
                         'key' => 'field_start_longitude',
@@ -1232,6 +1250,47 @@ function placy_register_acf_fields() {
                         'required' => 1,
                         'step' => 0.000001,
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '30',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_start_image',
+                        'label' => 'Start Location Image',
+                        'name' => 'image',
+                        'type' => 'image',
+                        'instructions' => 'Image for start location marker',
+                        'return_format' => 'array',
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '50',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_include_approach_in_route',
+                        'label' => 'Include Approach in Route',
+                        'name' => 'include_approach_in_route',
+                        'type' => 'true_false',
+                        'instructions' => 'If ON: Start→First waypoint is part of main route (dark blue). If OFF: Light blue approach line (not part of route)',
+                        'default_value' => 0,
+                        'ui' => 1,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '50',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_show_return_route',
+                        'label' => 'Show Return Route',
+                        'name' => 'show_return_route',
+                        'type' => 'true_false',
+                        'instructions' => 'If ON: Show light blue return line (not part of route). If OFF: No return line',
+                        'default_value' => 1,
+                        'ui' => 1,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '50',
+                        ),
                     ),
                 ),
             ),
@@ -1251,14 +1310,9 @@ function placy_register_acf_fields() {
                         'type' => 'text',
                         'required' => 1,
                         'show_in_graphql' => 1,
-                    ),
-                    array(
-                        'key' => 'field_route_hero_subtitle',
-                        'label' => 'Hero Subtitle',
-                        'name' => 'subtitle',
-                        'type' => 'textarea',
-                        'rows' => 3,
-                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '60',
+                        ),
                     ),
                     array(
                         'key' => 'field_route_hero_image',
@@ -1268,14 +1322,31 @@ function placy_register_acf_fields() {
                         'instructions' => 'Main background image',
                         'return_format' => 'array',
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '40',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_route_hero_subtitle',
+                        'label' => 'Hero Subtitle',
+                        'name' => 'subtitle',
+                        'type' => 'textarea',
+                        'rows' => 2,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '60',
+                        ),
                     ),
                     array(
                         'key' => 'field_route_video_embed',
                         'label' => 'Video Embed URL',
                         'name' => 'video_embed_url',
                         'type' => 'url',
-                        'instructions' => 'YouTube or Vimeo embed URL (optional Google Earth Studio flyover)',
+                        'instructions' => 'YouTube/Vimeo (optional flyover)',
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '40',
+                        ),
                     ),
                 ),
             ),
@@ -1287,21 +1358,13 @@ function placy_register_acf_fields() {
                 'type' => 'repeater',
                 'instructions' => 'Sequential stops along the route',
                 'required' => 1,
-                'min' => 2,
-                'layout' => 'block',
-                'button_label' => 'Add Waypoint',
+                'min' => 1,
+                'max' => 50,
+                'layout' => 'row',
+                'collapsed' => 'field_waypoint_poi',
+                'button_label' => 'Add Waypoint Stop',
                 'show_in_graphql' => 1,
                 'sub_fields' => array(
-                    array(
-                        'key' => 'field_waypoint_order',
-                        'label' => 'Order',
-                        'name' => 'waypoint_order',
-                        'type' => 'number',
-                        'instructions' => 'Sequence number (1, 2, 3...)',
-                        'required' => 1,
-                        'min' => 1,
-                        'show_in_graphql' => 1,
-                    ),
                     array(
                         'key' => 'field_waypoint_poi',
                         'label' => 'Related POI',
@@ -1312,15 +1375,9 @@ function placy_register_acf_fields() {
                         'post_type' => array('poi'),
                         'return_format' => 'object',
                         'show_in_graphql' => 1,
-                    ),
-                    array(
-                        'key' => 'field_waypoint_description',
-                        'label' => 'Waypoint Description',
-                        'name' => 'description',
-                        'type' => 'textarea',
-                        'instructions' => 'What to do/see at this stop',
-                        'rows' => 4,
-                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '60',
+                        ),
                     ),
                     array(
                         'key' => 'field_waypoint_time',
@@ -1330,14 +1387,36 @@ function placy_register_acf_fields() {
                         'instructions' => 'Suggested time to spend here',
                         'min' => 1,
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '40',
+                        ),
                     ),
                     array(
-                        'key' => 'field_waypoint_audio',
-                        'label' => 'Audio Guide URL',
-                        'name' => 'audio_guide_url',
-                        'type' => 'url',
-                        'instructions' => 'Optional audio narration for this waypoint',
+                        'key' => 'field_waypoint_order',
+                        'label' => 'Order',
+                        'name' => 'waypoint_order',
+                        'type' => 'number',
+                        'instructions' => 'Auto-generated from position in list',
+                        'required' => 0,
+                        'min' => 1,
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '0',
+                            'class' => 'hidden',
+                        ),
+                        'readonly' => 1,
+                    ),
+                    array(
+                        'key' => 'field_waypoint_description',
+                        'label' => 'Waypoint Description',
+                        'name' => 'description',
+                        'type' => 'textarea',
+                        'instructions' => 'What to do/see at this stop',
+                        'rows' => 3,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '100',
+                        ),
                     ),
                 ),
             ),
@@ -1357,15 +1436,9 @@ function placy_register_acf_fields() {
                         'type' => 'text',
                         'instructions' => 'e.g., "Year-round" or "May-September"',
                         'show_in_graphql' => 1,
-                    ),
-                    array(
-                        'key' => 'field_route_accessibility',
-                        'label' => 'Accessibility Notes',
-                        'name' => 'accessibility_notes',
-                        'type' => 'textarea',
-                        'instructions' => 'Wheelchair access, stairs, terrain notes',
-                        'rows' => 3,
-                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '33',
+                        ),
                     ),
                     array(
                         'key' => 'field_route_price',
@@ -1374,6 +1447,21 @@ function placy_register_acf_fields() {
                         'type' => 'text',
                         'instructions' => 'e.g., "Free" or "NOK 250 with guide"',
                         'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '33',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_route_accessibility',
+                        'label' => 'Accessibility Notes',
+                        'name' => 'accessibility_notes',
+                        'type' => 'textarea',
+                        'instructions' => 'Wheelchair access, stairs, terrain',
+                        'rows' => 2,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '34',
+                        ),
                     ),
                 ),
             ),
@@ -1420,6 +1508,26 @@ function placy_populate_frontend_url($value, $post_id, $field) {
     return $frontend_url;
 }
 add_filter('acf/load_value/name=frontend_url', 'placy_populate_frontend_url', 10, 3);
+
+/**
+ * AUTO-SET WAYPOINT ORDER BASED ON POSITION IN REPEATER
+ */
+function placy_auto_set_waypoint_order($value, $post_id, $field) {
+    // Only for route_waypoints repeater
+    if ($field['name'] !== 'route_waypoints') {
+        return $value;
+    }
+    
+    // If we have waypoints, auto-set the order based on array position
+    if (is_array($value) && !empty($value)) {
+        foreach ($value as $index => $waypoint) {
+            $value[$index]['waypoint_order'] = $index + 1;
+        }
+    }
+    
+    return $value;
+}
+add_filter('acf/update_value/name=route_waypoints', 'placy_auto_set_waypoint_order', 10, 3);
 
 /**
  * ADD "VIEW ON FRONTEND" BUTTON TO PROSJEKT ADMIN

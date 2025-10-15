@@ -421,6 +421,18 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
           name
           latitude
           longitude
+          image {
+            node {
+              sourceUrl
+              altText
+              mediaDetails {
+                width
+                height
+              }
+            }
+          }
+          includeApproachInRoute
+          showReturnRoute
         }
         heroSection {
           title
@@ -467,7 +479,6 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
           }
           description
           estimatedTime
-          audioGuideUrl
         }
         practicalInfo {
           bestSeason

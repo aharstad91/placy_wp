@@ -94,8 +94,14 @@ export default async function RouteStoryPage({ params }: RouteStoryPageProps) {
 
       {/* Route Content with Interactive Map */}
       <RouteContentWrapper
-        startLocation={fields.startLocation}
+        startLocation={{
+          ...fields.startLocation,
+          image: fields.startLocation.image?.node?.sourceUrl
+        }}
         waypoints={fields.routeWaypoints}
+        routeDuration={fields.routeDuration}
+        routeDistance={fields.routeDistance}
+        routeDifficulty={fields.routeDifficulty}
       />
 
       {/* Practical Info */}
