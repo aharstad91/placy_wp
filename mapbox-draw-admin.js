@@ -820,18 +820,18 @@
         return;
       }
       
-      console.log(`Found ${waypointData.length} waypoints, formatting JSON...`);
+      console.log(`Found ${waypointData.length} waypoints, formatting KML...`);
       
-      // Format as Earth Studio JSON
-      const earthStudioJSON = formatEarthStudioJSON(waypointData);
-      console.log('Formatted JSON:', earthStudioJSON);
+      // Format as KML for Earth Studio
+      const earthStudioKML = formatEarthStudioKML(waypointData);
+      console.log('Formatted KML length:', earthStudioKML.kml.length, 'characters');
       
-      // Download JSON file
+      // Download KML file
       console.log('Triggering download...');
-      downloadJSON(earthStudioJSON);
+      downloadKML(earthStudioKML);
       
       // Show success message
-      showNotice(`Successfully exported ${waypointData.length} waypoints for Google Earth Studio!`, 'success');
+      showNotice(`Successfully exported ${waypointData.length} waypoints as KML for Google Earth Studio!`, 'success');
       
       // Reset button
       $button.prop('disabled', false).html(originalText);
@@ -995,43 +995,81 @@
   }
 
   /**
-   * Format data as Earth Studio JSON
+   * Format data as KML for Google Earth Studio
    */
-  function formatEarthStudioJSON(waypoints) {
+  function formatEarthStudioKML(waypoints) {
     // Get story title and slug
     const storyTitle = $('#title').val() || 'Route Story';
     const storySlug = $('#post_name').val() || $('#editable-post-name').text() || 'route-story';
     
-    // Calculate recommended duration (3 seconds per waypoint)
-    const recommendedDuration = waypoints.length * 3;
+    // Build KML XML structure
+    let kml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    kml += '<kml xmlns="http://www.opengis.net/kml/2.2">\n';
+    kml += '  <Document>\n';
+    kml += `    <name>${escapeXml(storyTitle)} - Flyover</name>\n`;
+    kml += `    <description>Generated from Placy WP Route Story. ${waypoints.length} waypoints along ${escapeXml(storyTitle)}.</description>\n`;
+    
+    // Add style for waypoint markers
+    kml += '    <Style id="waypointStyle">\n';
+    kml += '      <IconStyle>\n';
+    kml += '        <color>ff0088ff</color>\n'; // Orange color
+    kml += '        <scale>1.2</scale>\n';
+    kml += '        <Icon>\n';
+    kml += '          <href>http://maps.google.com/mapfiles/kml/paddle/orange-circle.png</href>\n';
+    kml += '        </Icon>\n';
+    kml += '      </IconStyle>\n';
+    kml += '      <LabelStyle>\n';
+    kml += '        <scale>0.9</scale>\n';
+    kml += '      </LabelStyle>\n';
+    kml += '    </Style>\n\n';
+    
+    // Add each waypoint as a Placemark
+    waypoints.forEach((waypoint, index) => {
+      kml += '    <Placemark>\n';
+      kml += `      <name>${index + 1}. ${escapeXml(waypoint.name)}</name>\n`;
+      if (waypoint.description) {
+        kml += `      <description>${escapeXml(waypoint.description)}</description>\n`;
+      }
+      kml += '      <styleUrl>#waypointStyle</styleUrl>\n';
+      kml += '      <Point>\n';
+      // KML format: longitude,latitude,altitude
+      kml += `        <coordinates>${waypoint.longitude},${waypoint.latitude},0</coordinates>\n`;
+      kml += '      </Point>\n';
+      kml += '    </Placemark>\n';
+    });
+    
+    kml += '  </Document>\n';
+    kml += '</kml>';
     
     return {
-      projectName: `${storyTitle} - Flyover`,
-      projectSlug: storySlug,
-      exportDate: new Date().toISOString(),
-      totalWaypoints: waypoints.length,
-      recommendedDuration: recommendedDuration,
-      waypoints: waypoints,
-      settings: {
-        defaultAltitude: 300, // meters above ground
-        smoothing: 'high',
-        cameraMode: 'follow-path',
-        notes: 'Generated from Placy WP Route Story. Import into Google Earth Studio for automatic flyover generation.'
-      }
+      kml: kml,
+      storySlug: storySlug
     };
+  }
+  
+  /**
+   * Escape XML special characters
+   */
+  function escapeXml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   /**
-   * Download JSON file
+   * Download KML file
    */
-  function downloadJSON(data) {
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
+  function downloadKML(data) {
+    const blob = new Blob([data.kml], { type: 'application/vnd.google-earth.kml+xml' });
     const url = URL.createObjectURL(blob);
     
     // Create temporary download link
     const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const filename = `${data.projectSlug}-earth-studio-${timestamp}.json`;
+    const filename = `${data.storySlug}-earth-studio-${timestamp}.kml`;
     
     const $link = $('<a>')
       .attr({
