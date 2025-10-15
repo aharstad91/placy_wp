@@ -57,6 +57,12 @@ export interface POI {
   id: string
   title: string
   slug: string
+  poiTypes?: {
+    nodes: Array<{
+      name: string
+      slug: string
+    }>
+  }
   poiFields: {
     poiDescription: string
     poiImage?: {
@@ -200,6 +206,12 @@ export interface RouteStoryFields {
   routeType: 'walking' | 'cycling' | 'driving'
   routeGeometrySource: 'mapbox_directions' | 'custom_drawn'
   routeGeometryJson?: string // GeoJSON LineString for custom drawn routes
+  mapBoundsNorth?: number // Auto-calculated from route geometry
+  mapBoundsSouth?: number
+  mapBoundsEast?: number
+  mapBoundsWest?: number
+  mapMinZoom?: number // Default 11
+  mapMaxZoom?: number // Default 18
   startLocation: {
     name: string
     latitude: number

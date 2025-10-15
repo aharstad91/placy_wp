@@ -36,6 +36,13 @@ export default function MapboxMap({
   const markers = useRef<mapboxgl.Marker[]>([])
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const hasInitializedBounds = useRef(false)
+  const [showMiniPois, setShowMiniPois] = useState(() => {
+    // Load from localStorage on mount
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('showMiniPois') === 'true'
+    }
+    return false
+  })
 
   // Initialize map
   useEffect(() => {
@@ -88,9 +95,15 @@ export default function MapboxMap({
 
     // Add markers for each POI
     pois.forEach((poi) => {
-      const { poiLatitude, poiLongitude, poiIcon, poiDescription } = poi.poiFields
+      const { poiLatitude, poiLongitude, poiIcon } = poi.poiFields
       
       if (!poiLatitude || !poiLongitude) return
+
+      // Check if this is a Mini-POI
+      const isMiniPoi = poi.poiTypes?.nodes?.some(type => type.slug === 'minor') || false
+      
+      // Skip Mini-POIs if toggle is off
+      if (isMiniPoi && !showMiniPois) return
 
       // Create container for marker + label
       const container = document.createElement('div')
@@ -100,23 +113,31 @@ export default function MapboxMap({
         align-items: center;
         cursor: pointer;
       `
+      container.dataset.poiType = isMiniPoi ? 'minor' : 'major'
+
+      // Adjust size and styling based on POI type
+      const markerSize = isMiniPoi ? 30 : 40
+      const borderWidth = isMiniPoi ? 2 : 3
+      const iconFontSize = isMiniPoi ? 16 : 20
+      const markerOpacity = isMiniPoi ? 0.85 : 1
 
       // Create custom marker element (pin)
       const el = document.createElement('div')
       el.className = 'poi-marker'
       el.style.cssText = `
-        width: 40px;
-        height: 40px;
+        width: ${markerSize}px;
+        height: ${markerSize}px;
         background-color: #10b981;
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
-        border: 3px solid white;
+        border: ${borderWidth}px solid white;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         display: flex;
         align-items: center;
         justify-content: center;
         transition: transform 0.2s;
         position: relative;
+        opacity: ${markerOpacity};
       `
       
       // Add icon if available
@@ -125,7 +146,7 @@ export default function MapboxMap({
         iconEl.textContent = poiIcon
         iconEl.style.cssText = `
           transform: rotate(45deg);
-          font-size: 20px;
+          font-size: ${iconFontSize}px;
         `
         el.appendChild(iconEl)
       }
@@ -209,6 +230,28 @@ export default function MapboxMap({
       markers.current.push(marker)
     })
 
+    // Update Mini-POI visibility based on zoom level
+    const updateMiniPoiVisibility = () => {
+      if (!map.current) return
+      const currentZoom = map.current.getZoom()
+      
+      markers.current.forEach(marker => {
+        const element = marker.getElement()
+        if (element.dataset.poiType === 'minor') {
+          // Show Mini-POIs only at zoom 12+
+          element.style.display = currentZoom >= 12 ? 'flex' : 'none'
+        }
+      })
+    }
+
+    // Set initial visibility for Mini-POIs
+    updateMiniPoiVisibility()
+
+    // Listen to zoom changes for Mini-POI visibility
+    if (map.current) {
+      map.current.on('zoom', updateMiniPoiVisibility)
+    }
+
     // Fit bounds to show all markers ONLY on initial load (not when selectedPoi changes)
     if (!hasInitializedBounds.current && map.current) {
       if (pois.length > 1) {
@@ -234,7 +277,7 @@ export default function MapboxMap({
         hasInitializedBounds.current = true
       }
     }
-  }, [pois, isMapLoaded])
+  }, [pois, isMapLoaded, showMiniPois])
 
   // Center map on selected POI when it changes
   useEffect(() => {
@@ -267,6 +310,15 @@ export default function MapboxMap({
     ] as [number, number]
   }, [selectedPoi])
 
+  // Handle toggle change
+  const handleToggleMiniPois = () => {
+    const newValue = !showMiniPois
+    setShowMiniPois(newValue)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('showMiniPois', String(newValue))
+    }
+  }
+
   return (
     <>
       <div 
@@ -274,6 +326,24 @@ export default function MapboxMap({
         className={`w-full h-full ${className}`}
         style={{ minHeight: '400px' }}
       />
+      
+      {/* Mini-POI Toggle Control */}
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 z-10">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showMiniPois}
+            onChange={handleToggleMiniPois}
+            className="w-4 h-4 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500"
+          />
+          <span className="text-sm font-medium text-gray-700">
+            Vis detaljer
+          </span>
+        </label>
+        <p className="text-xs text-gray-500 mt-1 ml-6">
+          Benker, lekeplasser, volleyball
+        </p>
+      </div>
       
       {/* Show route if enabled and we have all required data */}
       {showRoute && routeFrom && routeTo && isMapLoaded && (

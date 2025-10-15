@@ -143,6 +143,12 @@ export const POI_FIELDS = gql`
     id
     title
     slug
+    poiTypes {
+      nodes {
+        name
+        slug
+      }
+    }
     poiFields {
       poiDescription
       poiImage {
@@ -419,6 +425,12 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
         routeType
         routeGeometrySource
         routeGeometryJson
+        mapBoundsNorth
+        mapBoundsSouth
+        mapBoundsEast
+        mapBoundsWest
+        mapMinZoom
+        mapMaxZoom
         startLocation {
           name
           latitude
@@ -523,6 +535,12 @@ export const GET_ROUTE_STORIES_BY_PROJECT = gql`
           routeType
           routeGeometrySource
           routeGeometryJson
+          mapBoundsNorth
+          mapBoundsSouth
+          mapBoundsEast
+          mapBoundsWest
+          mapMinZoom
+          mapMaxZoom
           heroSection {
             title
             subtitle

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import RouteMap from './RouteMap'
 import RouteTimeline from './RouteTimeline'
 import { RouteWaypoint, POI } from '@/types/wordpress'
+import { useQuery } from '@apollo/client'
+import { GET_POIS } from '@/queries/wordpress'
 
 interface RouteContentWrapperProps {
   startLocation: {
@@ -20,6 +22,14 @@ interface RouteContentWrapperProps {
   routeDifficulty?: string
   routeGeometrySource?: 'mapbox_directions' | 'custom_drawn'
   routeGeometryJson?: string
+  mapBounds?: {
+    north: number
+    south: number
+    east: number
+    west: number
+  }
+  mapMinZoom?: number
+  mapMaxZoom?: number
 }
 
 export default function RouteContentWrapper({
@@ -29,13 +39,37 @@ export default function RouteContentWrapper({
   routeDistance,
   routeDifficulty,
   routeGeometrySource = 'mapbox_directions',
-  routeGeometryJson
+  routeGeometryJson,
+  mapBounds,
+  mapMinZoom = 11,
+  mapMaxZoom = 18
 }: RouteContentWrapperProps) {
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false)
   const [selectedPoi, setSelectedPoi] = useState<POI | null>(null)
 
-  // Transform waypoints to POIs for MapboxMap
-  const pois: POI[] = waypoints
+  // Fetch all POIs for Mini-POI filtering
+  const { data: poisData } = useQuery(GET_POIS, {
+    variables: { first: 100 }
+  })
+
+  // Filter POIs within map bounds (for Mini-POIs)
+  const allPois: POI[] = poisData?.pois?.nodes || []
+  const boundedPois = mapBounds 
+    ? allPois.filter(poi => {
+        const lat = poi.poiFields?.poiLatitude
+        const lng = poi.poiFields?.poiLongitude
+        if (!lat || !lng) return false
+        return (
+          lat >= mapBounds.south &&
+          lat <= mapBounds.north &&
+          lng >= mapBounds.west &&
+          lng <= mapBounds.east
+        )
+      })
+    : []
+
+  // Transform waypoints to POIs for MapboxMap (Hoved-POIs)
+  const waypointPois: POI[] = waypoints
     .filter(wp => wp.relatedPoi.nodes.length > 0)
     .map(wp => wp.relatedPoi.nodes[0])
 
@@ -101,7 +135,8 @@ export default function RouteContentWrapper({
         mode="fullscreen"
         isOpen={isMapOverlayOpen}
         onClose={handleCloseOverlay}
-        pois={pois}
+        waypointPois={waypointPois}
+        allPois={boundedPois}
         selectedPoi={selectedPoi}
         onPoiSelect={setSelectedPoi}
         startLocation={startLocation}
@@ -123,6 +158,9 @@ export default function RouteContentWrapper({
         routeDifficulty={routeDifficulty}
         routeGeometrySource={routeGeometrySource}
         routeGeometryJson={routeGeometryJson}
+        mapBounds={mapBounds}
+        mapMinZoom={mapMinZoom}
+        mapMaxZoom={mapMaxZoom}
       />
     </>
   )

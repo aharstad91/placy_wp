@@ -28,7 +28,8 @@ interface RouteMapProps {
   // Fullscreen mode props
   isOpen?: boolean
   onClose?: () => void
-  pois?: POI[]
+  waypointPois?: POI[] // Major POIs from waypoints (always visible)
+  allPois?: POI[] // All POIs within bounds (for Mini-POI filtering)
   selectedPoi?: POI | null
   onPoiSelect?: (poi: POI) => void
   // Route metadata
@@ -38,6 +39,15 @@ interface RouteMapProps {
   // Route geometry
   routeGeometrySource?: 'mapbox_directions' | 'custom_drawn'
   routeGeometryJson?: string
+  // Map bounds and zoom
+  mapBounds?: {
+    north: number
+    south: number
+    east: number
+    west: number
+  }
+  mapMinZoom?: number
+  mapMaxZoom?: number
 }
 
 export default function RouteMap({
@@ -47,23 +57,42 @@ export default function RouteMap({
   onMapClick,
   isOpen = true,
   onClose,
-  pois = [],
+  waypointPois = [],
+  allPois = [],
   selectedPoi,
   onPoiSelect,
   routeDuration,
   routeDistance,
   routeDifficulty,
   routeGeometrySource = 'mapbox_directions',
-  routeGeometryJson
+  routeGeometryJson,
+  mapBounds,
+  mapMinZoom = 11,
+  mapMaxZoom = 18
 }: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [localSelectedPoi, setLocalSelectedPoi] = useState<POI | null>(selectedPoi || null)
+  const [showMiniPois, setShowMiniPois] = useState(() => {
+    // Load Mini-POI visibility from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('showMiniPois')
+      return saved === 'true'
+    }
+    return false
+  })
   const markersRef = useRef<mapboxgl.Marker[]>([])
   const timeBadgeElementsRef = useRef<HTMLElement[]>([])
   const hasSetInitialBounds = useRef(false)
+
+  // Save Mini-POI toggle state to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('showMiniPois', showMiniPois.toString())
+    }
+  }, [showMiniPois])
 
   // Update localSelectedPoi when selectedPoi prop changes
   useEffect(() => {
@@ -89,6 +118,12 @@ export default function RouteMap({
         bounds.extend([wp.longitude, wp.latitude])
       })
       
+      // Set maxBounds if provided (geographic boundary)
+      const maxBounds = mapBounds ? [
+        [mapBounds.west, mapBounds.south], // Southwest corner
+        [mapBounds.east, mapBounds.north]  // Northeast corner
+      ] as [[number, number], [number, number]] : undefined
+      
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
@@ -96,7 +131,10 @@ export default function RouteMap({
         fitBoundsOptions: {
           padding: mode === 'preview' ? 50 : 80,
           duration: 0 // No animation on initial load
-        }
+        },
+        maxBounds: maxBounds, // Restrict panning outside this area
+        minZoom: mapMinZoom,  // Prevent zooming too far out
+        maxZoom: mapMaxZoom   // Prevent zooming too close
       })
 
       // Add navigation controls for fullscreen mode
@@ -411,8 +449,8 @@ export default function RouteMap({
       }
 
       // Click handler for fullscreen mode to show POI details
-      if (mode === 'fullscreen' && pois[index] && onPoiSelect) {
-        const poi = pois[index]
+      if (mode === 'fullscreen' && waypointPois[index] && onPoiSelect) {
+        const poi = waypointPois[index]
         container.addEventListener('click', (e) => {
           e.stopPropagation() // Prevent map click from triggering
           setLocalSelectedPoi(poi)
@@ -1030,7 +1068,7 @@ export default function RouteMap({
     }
 
     fetchRoute()
-  }, [mapLoaded, startLocation, waypoints, mode, pois, onPoiSelect, routeGeometrySource, routeGeometryJson])
+  }, [mapLoaded, startLocation, waypoints, mode, waypointPois, onPoiSelect, routeGeometrySource, routeGeometryJson])
 
   // Separate effect for handling zoom-based visibility of time badges
   useEffect(() => {
@@ -1062,6 +1100,53 @@ export default function RouteMap({
       map.current?.off('zoom', updateTimeBadgesVisibility)
     }
   }, [mapLoaded])
+
+  // Add Mini-POI markers (only in fullscreen mode)
+  useEffect(() => {
+    if (!map.current || !mapLoaded || mode !== 'fullscreen' || !showMiniPois) return
+
+    const miniPoiMarkersRef: mapboxgl.Marker[] = []
+
+    // Filter Mini-POIs (POI type = "minor")
+    const miniPois = allPois.filter(poi => 
+      poi.poiTypes?.nodes?.some(type => type.slug === 'minor')
+    )
+
+    miniPois.forEach(poi => {
+      const lat = poi.poiFields?.poiLatitude
+      const lng = poi.poiFields?.poiLongitude
+      
+      if (!lat || !lng) return
+
+      // Create smaller marker for Mini-POIs
+      const el = document.createElement('div')
+      el.className = 'mini-poi-marker'
+      el.innerHTML = `
+        <div class="relative">
+          <div class="w-[30px] h-[30px] bg-gray-600/85 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform cursor-pointer">
+            <span class="text-white text-xs">${poi.poiFields?.poiIcon || '📍'}</span>
+          </div>
+        </div>
+      `
+      
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setLocalSelectedPoi(poi)
+        onPoiSelect?.(poi)
+      })
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([lng, lat])
+        .addTo(map.current!)
+      
+      miniPoiMarkersRef.push(marker)
+    })
+
+    // Cleanup function
+    return () => {
+      miniPoiMarkersRef.forEach(marker => marker.remove())
+    }
+  }, [mapLoaded, mode, showMiniPois, allPois, onPoiSelect])
 
   const handleClose = () => {
     setLocalSelectedPoi(null)
@@ -1151,6 +1236,20 @@ export default function RouteMap({
                       <span className="text-lg">⚡</span>
                       <span className="font-semibold capitalize">{routeDifficulty}</span>
                     </div>
+                  )}
+                  {/* Mini-POI Toggle - Always show if we have map bounds */}
+                  {mapBounds && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showMiniPois}
+                        onChange={(e) => setShowMiniPois(e.target.checked)}
+                        className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Vis detaljer {allPois.length > 0 && `(${allPois.length})`}
+                      </span>
+                    </label>
                   )}
                 </div>
                 <button

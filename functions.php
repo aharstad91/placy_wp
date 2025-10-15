@@ -474,9 +474,66 @@ function placy_register_cpts() {
         'rewrite' => array('slug' => 'poi'),
         'menu_icon' => 'dashicons-location',
         'menu_position' => 8,
+        'taxonomies' => array('poi_type'), // Support for POI type taxonomy
     ));
 }
 add_action('init', 'placy_register_cpts');
+
+/**
+ * Register POI Type Taxonomy
+ * Differentiates between major POIs (always visible) and minor POIs (zoom-dependent)
+ */
+function placy_register_poi_taxonomy() {
+    register_taxonomy('poi_type', array('poi'), array(
+        'labels' => array(
+            'name' => 'POI Type',
+            'singular_name' => 'POI Type',
+            'menu_name' => 'POI Type',
+            'all_items' => 'Alle typer',
+            'edit_item' => 'Rediger type',
+            'view_item' => 'Vis type',
+            'update_item' => 'Oppdater type',
+            'add_new_item' => 'Legg til ny type',
+            'new_item_name' => 'Nytt typenavn',
+            'search_items' => 'Søk typer',
+        ),
+        'public' => true,
+        'show_in_rest' => true,
+        'show_in_graphql' => true,
+        'graphql_single_name' => 'poiType',
+        'graphql_plural_name' => 'poiTypes',
+        'hierarchical' => false, // Tag-style, not category-style
+        'show_admin_column' => true,
+        'show_in_menu' => true,
+        'show_ui' => true,
+        'meta_box_cb' => 'post_categories_meta_box', // Simple radio selection
+        'rewrite' => array('slug' => 'poi-type'),
+    ));
+    
+    // Create default terms if they don't exist
+    if (!term_exists('Hoved-POI', 'poi_type')) {
+        wp_insert_term(
+            'Hoved-POI',
+            'poi_type',
+            array(
+                'description' => 'Hoved-attraksjon som alltid vises på kartet',
+                'slug' => 'major'
+            )
+        );
+    }
+    
+    if (!term_exists('Mini-POI', 'poi_type')) {
+        wp_insert_term(
+            'Mini-POI',
+            'poi_type',
+            array(
+                'description' => 'Detaljer som vises ved høyere zoom-nivå (benker, lekeplasser, etc.)',
+                'slug' => 'minor'
+            )
+        );
+    }
+}
+add_action('init', 'placy_register_poi_taxonomy');
 
 /**
  * CUSTOM REWRITE RULES FOR HIERARCHICAL STORY URLs
@@ -517,6 +574,164 @@ function placy_story_permalink($post_link, $post) {
     return home_url("/stories/{$post->post_name}/");
 }
 add_filter('post_type_link', 'placy_story_permalink', 10, 2);
+
+/**
+ * Calculate geographic bounds from GeoJSON LineString with buffer
+ * 
+ * @param string $geojson_string GeoJSON string containing LineString geometry
+ * @param float $buffer_meters Buffer distance in meters (default 10000m / 10km)
+ * @return array|null Array with [north, south, east, west] or null on failure
+ */
+function placy_calculate_route_bounds($geojson_string, $buffer_meters = 10000) {
+    if (empty($geojson_string)) {
+        return null;
+    }
+    
+    $geojson = json_decode($geojson_string, true);
+    if (!$geojson || !isset($geojson['coordinates'])) {
+        return null;
+    }
+    
+    $coordinates = $geojson['coordinates'];
+    if (empty($coordinates)) {
+        return null;
+    }
+    
+    // Find min/max coordinates
+    $lats = array_column($coordinates, 1);
+    $lngs = array_column($coordinates, 0);
+    
+    $min_lat = min($lats);
+    $max_lat = max($lats);
+    $min_lng = min($lngs);
+    $max_lng = max($lngs);
+    
+    // Convert buffer from meters to degrees (rough approximation)
+    // At latitude ~60° (Norway): 1° lat ≈ 111km, 1° lng ≈ 55km
+    $avg_lat = ($min_lat + $max_lat) / 2;
+    $lat_buffer = $buffer_meters / 111000; // degrees latitude
+    $lng_buffer = $buffer_meters / (111000 * cos(deg2rad($avg_lat))); // degrees longitude adjusted for latitude
+    
+    return array(
+        'north' => $max_lat + $lat_buffer,
+        'south' => $min_lat - $lat_buffer,
+        'east' => $max_lng + $lng_buffer,
+        'west' => $min_lng - $lng_buffer,
+    );
+}
+
+/**
+ * Auto-populate map bounds when route geometry is saved
+ * Calculates bounding box from BOTH route geometry AND waypoint POI coordinates
+ */
+function placy_auto_calculate_route_bounds($post_id) {
+    // Only run for route_story post type
+    if (get_post_type($post_id) !== 'route_story') {
+        return;
+    }
+    
+    // Avoid infinite loops
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    
+    // Check user permissions
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+    
+    // Get route geometry
+    $geometry_json = get_field('route_geometry_json', $post_id);
+    if (empty($geometry_json)) {
+        $geometry_json = get_post_meta($post_id, 'route_geometry_json', true);
+    }
+    
+    if (empty($geometry_json)) {
+        return;
+    }
+    
+    // Start with route geometry bounds
+    $geojson = json_decode($geometry_json, true);
+    if (!$geojson) {
+        return;
+    }
+    
+    // Handle both Feature wrapper and direct LineString
+    if (isset($geojson['type']) && $geojson['type'] === 'Feature' && isset($geojson['geometry'])) {
+        $geojson = $geojson['geometry'];
+    }
+    
+    if (!isset($geojson['coordinates']) || empty($geojson['coordinates'])) {
+        return;
+    }
+    
+    // Collect all coordinates (route + waypoints)
+    $all_lats = array();
+    $all_lngs = array();
+    
+    // Add route coordinates
+    foreach ($geojson['coordinates'] as $coord) {
+        $all_lngs[] = $coord[0]; // longitude
+        $all_lats[] = $coord[1]; // latitude
+    }
+    
+    // Get waypoints and add their coordinates
+    $waypoints = get_field('route_waypoints', $post_id);
+    
+    if ($waypoints && is_array($waypoints)) {
+        foreach ($waypoints as $waypoint) {
+            // Get POI relationship (field name is 'related_poi')
+            $poi = isset($waypoint['related_poi']) ? $waypoint['related_poi'] : null;
+            
+            if ($poi && is_object($poi)) {
+                // Get POI coordinates directly (not nested in poiFields group)
+                $lat = get_field('poi_latitude', $poi->ID);
+                $lng = get_field('poi_longitude', $poi->ID);
+                
+                if ($lat && $lng) {
+                    $all_lats[] = floatval($lat);
+                    $all_lngs[] = floatval($lng);
+                }
+            }
+        }
+    }
+    
+    // Calculate bounds from all coordinates
+    if (empty($all_lats) || empty($all_lngs)) {
+        return;
+    }
+    
+    $min_lat = min($all_lats);
+    $max_lat = max($all_lats);
+    $min_lng = min($all_lngs);
+    $max_lng = max($all_lngs);
+    
+    // Apply buffer (2km for generous padding)
+    $buffer_meters = 2000;
+    $avg_lat = ($min_lat + $max_lat) / 2;
+    $lat_buffer = $buffer_meters / 111000;
+    $lng_buffer = $buffer_meters / (111000 * cos(deg2rad($avg_lat)));
+    
+    $bounds = array(
+        'north' => $max_lat + $lat_buffer,
+        'south' => $min_lat - $lat_buffer,
+        'east' => $max_lng + $lng_buffer,
+        'west' => $min_lng - $lng_buffer,
+    );
+    
+    // Update bounds fields
+    update_field('field_map_bounds_north', $bounds['north'], $post_id);
+    update_field('field_map_bounds_south', $bounds['south'], $post_id);
+    update_field('field_map_bounds_east', $bounds['east'], $post_id);
+    update_field('field_map_bounds_west', $bounds['west'], $post_id);
+    
+    // Also update as direct post meta as backup
+    update_post_meta($post_id, 'map_bounds_north', $bounds['north']);
+    update_post_meta($post_id, 'map_bounds_south', $bounds['south']);
+    update_post_meta($post_id, 'map_bounds_east', $bounds['east']);
+    update_post_meta($post_id, 'map_bounds_west', $bounds['west']);
+}
+add_action('acf/save_post', 'placy_auto_calculate_route_bounds', 20);
 
 /**
  * ACF FIELD GROUPS - RELASJONER & METADATA
@@ -1504,6 +1719,77 @@ function placy_register_acf_fields() {
                         ),
                     ),
                 ),
+            ),
+            // Map Bounds (Auto-calculated from route geometry)
+            array(
+                'key' => 'field_map_bounds_north',
+                'label' => 'Map Bounds North',
+                'name' => 'map_bounds_north',
+                'type' => 'number',
+                'instructions' => 'Northernmost latitude (auto-calculated from route + 500m buffer)',
+                'step' => 0.000001,
+                'readonly' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array('width' => '25'),
+            ),
+            array(
+                'key' => 'field_map_bounds_south',
+                'label' => 'Map Bounds South',
+                'name' => 'map_bounds_south',
+                'type' => 'number',
+                'instructions' => 'Southernmost latitude (auto-calculated)',
+                'step' => 0.000001,
+                'readonly' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array('width' => '25'),
+            ),
+            array(
+                'key' => 'field_map_bounds_east',
+                'label' => 'Map Bounds East',
+                'name' => 'map_bounds_east',
+                'type' => 'number',
+                'instructions' => 'Easternmost longitude (auto-calculated)',
+                'step' => 0.000001,
+                'readonly' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array('width' => '25'),
+            ),
+            array(
+                'key' => 'field_map_bounds_west',
+                'label' => 'Map Bounds West',
+                'name' => 'map_bounds_west',
+                'type' => 'number',
+                'instructions' => 'Westernmost longitude (auto-calculated)',
+                'step' => 0.000001,
+                'readonly' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array('width' => '25'),
+            ),
+            array(
+                'key' => 'field_map_min_zoom',
+                'label' => 'Min Zoom Level',
+                'name' => 'map_min_zoom',
+                'type' => 'number',
+                'instructions' => 'Minimum zoom level (prevents zooming too far out)',
+                'default_value' => 11,
+                'min' => 0,
+                'max' => 22,
+                'step' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array('width' => '50'),
+            ),
+            array(
+                'key' => 'field_map_max_zoom',
+                'label' => 'Max Zoom Level',
+                'name' => 'map_max_zoom',
+                'type' => 'number',
+                'instructions' => 'Maximum zoom level (prevents zooming too close)',
+                'default_value' => 18,
+                'min' => 0,
+                'max' => 22,
+                'step' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array('width' => '50'),
             ),
             // Mapbox Draw Interface Trigger
             array(

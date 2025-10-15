@@ -104,6 +104,18 @@ export default async function RouteStoryPage({ params }: RouteStoryPageProps) {
         routeDifficulty={fields.routeDifficulty}
         routeGeometrySource={fields.routeGeometrySource}
         routeGeometryJson={fields.routeGeometryJson}
+        mapBounds={
+          fields.mapBoundsNorth && fields.mapBoundsSouth && fields.mapBoundsEast && fields.mapBoundsWest
+            ? {
+                north: fields.mapBoundsNorth,
+                south: fields.mapBoundsSouth,
+                east: fields.mapBoundsEast,
+                west: fields.mapBoundsWest
+              }
+            : undefined
+        }
+        mapMinZoom={fields.mapMinZoom}
+        mapMaxZoom={fields.mapMaxZoom}
       />
 
       {/* Practical Info */}
