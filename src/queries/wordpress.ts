@@ -417,6 +417,8 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
         routeDistance
         routeDifficulty
         routeType
+        routeGeometrySource
+        routeGeometryJson
         startLocation {
           name
           latitude
@@ -519,6 +521,8 @@ export const GET_ROUTE_STORIES_BY_PROJECT = gql`
           routeDistance
           routeDifficulty
           routeType
+          routeGeometrySource
+          routeGeometryJson
           heroSection {
             title
             subtitle

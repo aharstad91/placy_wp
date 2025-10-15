@@ -14,6 +14,8 @@ interface MapRouteProps {
   from: [number, number] // [lng, lat]
   to: [number, number]   // [lng, lat]
   profile?: 'walking' | 'driving' | 'cycling'
+  geometrySource?: 'mapbox_directions' | 'custom_drawn'
+  customGeometry?: string // GeoJSON LineString as string
   onRouteLoaded?: (data: RouteData) => void
 }
 
@@ -22,15 +24,105 @@ export default function MapRoute({
   from, 
   to, 
   profile = 'walking',
+  geometrySource = 'mapbox_directions',
+  customGeometry,
   onRouteLoaded 
 }: MapRouteProps) {
-  const [routeData, setRouteData] = useState<RouteData | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [, setRouteData] = useState<RouteData | null>(null)
+  const [, setIsLoading] = useState(false)
+  const [, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!map) return
 
+    // Handle custom drawn geometry
+    if (geometrySource === 'custom_drawn' && customGeometry) {
+      try {
+        const feature = JSON.parse(customGeometry)
+        const geometry = feature.geometry
+
+        if (!geometry || geometry.type !== 'LineString') {
+          console.error('Invalid custom geometry: must be GeoJSON LineString')
+          return
+        }
+
+        // Calculate approximate distance and duration from coordinates
+        const coords = geometry.coordinates
+        let totalDistance = 0
+        
+        for (let i = 0; i < coords.length - 1; i++) {
+          const from = coords[i]
+          const to = coords[i + 1]
+          // Simple distance calculation (Haversine would be more accurate)
+          const dx = to[0] - from[0]
+          const dy = to[1] - from[1]
+          totalDistance += Math.sqrt(dx * dx + dy * dy) * 111000 // rough meters conversion
+        }
+
+        const routeInfo: RouteData = {
+          distance: totalDistance,
+          duration: totalDistance / 1.4, // Rough walking speed estimate (1.4 m/s)
+          geometry: geometry
+        }
+
+        setRouteData(routeInfo)
+        onRouteLoaded?.(routeInfo)
+
+        // Add custom route to map
+        if (map.getSource('route')) {
+          (map.getSource('route') as mapboxgl.GeoJSONSource).setData(geometry)
+        } else {
+          map.addSource('route', {
+            type: 'geojson',
+            data: geometry
+          })
+
+          // Add white border/outline
+          map.addLayer({
+            id: 'route-outline',
+            type: 'line',
+            source: 'route',
+            paint: {
+              'line-color': '#ffffff',
+              'line-width': 8,
+              'line-opacity': 1
+            }
+          })
+
+          // Add main custom route line (dark blue for custom routes)
+          map.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-cap': 'round',
+              'line-join': 'round'
+            },
+            paint: {
+              'line-color': '#1e40af', // Dark blue for custom routes
+              'line-width': 5,
+              'line-opacity': 0.95
+            }
+          })
+        }
+
+        // Fit map to custom route bounds
+        const coordinates = geometry.coordinates
+        const bounds = coordinates.reduce((bounds: mapboxgl.LngLatBounds, coord: [number, number]) => {
+          return bounds.extend(coord)
+        }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]))
+        
+        map.fitBounds(bounds, { padding: 50 })
+
+      } catch (err) {
+        console.error('Error parsing custom geometry:', err)
+        setError('Invalid custom route geometry')
+      }
+      
+      return
+    }
+
+    // Original Mapbox Directions API logic
     const fetchRoute = async () => {
       setIsLoading(true)
       setError(null)
@@ -119,7 +211,7 @@ export default function MapRoute({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, from, to, profile])
+  }, [map, from, to, profile, geometrySource, customGeometry])
 
   // No UI rendering - all handled in parent component via callback
   return null

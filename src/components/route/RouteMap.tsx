@@ -35,6 +35,9 @@ interface RouteMapProps {
   routeDuration?: number
   routeDistance?: number
   routeDifficulty?: string
+  // Route geometry
+  routeGeometrySource?: 'mapbox_directions' | 'custom_drawn'
+  routeGeometryJson?: string
 }
 
 export default function RouteMap({
@@ -49,7 +52,9 @@ export default function RouteMap({
   onPoiSelect,
   routeDuration,
   routeDistance,
-  routeDifficulty
+  routeDifficulty,
+  routeGeometrySource = 'mapbox_directions',
+  routeGeometryJson
 }: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -446,6 +451,84 @@ export default function RouteMap({
         [startLocation.longitude, startLocation.latitude]
       ] : null
 
+      // Check if custom geometry is provided
+      if (routeGeometrySource === 'custom_drawn' && routeGeometryJson) {
+        console.log('🎨 Using custom drawn route geometry (skipping Directions API)')
+        
+        try {
+          const customFeature = JSON.parse(routeGeometryJson)
+          const customGeometry = customFeature.geometry
+          
+          if (customGeometry && customGeometry.type === 'LineString') {
+            // Use custom geometry for main route
+            if (map.current) {
+              // Remove old route layers
+              const layersToRemove = [
+                'route-approach', 'route-approach-border',
+                'route-main', 'route-main-border',
+                'route-return', 'route-return-border'
+              ]
+              
+              layersToRemove.forEach(layerId => {
+                if (map.current?.getLayer(layerId)) {
+                  map.current.removeLayer(layerId)
+                }
+              })
+              
+              const sourcesToRemove = ['route-approach', 'route-main', 'route-return']
+              sourcesToRemove.forEach(sourceId => {
+                if (map.current?.getSource(sourceId)) {
+                  map.current.removeSource(sourceId)
+                }
+              })
+              
+              // Add custom route as main route
+              map.current.addSource('route-main', {
+                type: 'geojson',
+                data: customGeometry
+              })
+              
+              // Add border (white outline)
+              map.current.addLayer({
+                id: 'route-main-border',
+                type: 'line',
+                source: 'route-main',
+                paint: {
+                  'line-color': '#ffffff',
+                  'line-width': 8,
+                  'line-opacity': 1
+                }
+              })
+              
+              // Add main custom route line (dark blue)
+              map.current.addLayer({
+                id: 'route-main',
+                type: 'line',
+                source: 'route-main',
+                layout: {
+                  'line-cap': 'round',
+                  'line-join': 'round'
+                },
+                paint: {
+                  'line-color': '#1e40af', // Dark blue for custom routes
+                  'line-width': 5,
+                  'line-opacity': 0.95
+                }
+              })
+              
+              console.log('✅ Custom route rendered successfully')
+            }
+          }
+        } catch (error) {
+          console.error('❌ Failed to parse custom route geometry:', error)
+        }
+        
+        return // Skip Directions API
+      }
+
+      // Original Directions API logic (only runs if NOT custom_drawn)
+      console.log('🗺️ Using Mapbox Directions API for route')
+      
       // Fetch all segments
       const fetchSegment = async (coords: number[][] | null, segmentName: string) => {
         if (!coords) return null
@@ -947,7 +1030,7 @@ export default function RouteMap({
     }
 
     fetchRoute()
-  }, [mapLoaded, startLocation, waypoints, mode, pois, onPoiSelect])
+  }, [mapLoaded, startLocation, waypoints, mode, pois, onPoiSelect, routeGeometrySource, routeGeometryJson])
 
   // Separate effect for handling zoom-based visibility of time badges
   useEffect(() => {

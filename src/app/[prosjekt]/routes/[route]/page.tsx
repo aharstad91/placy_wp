@@ -102,6 +102,8 @@ export default async function RouteStoryPage({ params }: RouteStoryPageProps) {
         routeDuration={fields.routeDuration}
         routeDistance={fields.routeDistance}
         routeDifficulty={fields.routeDifficulty}
+        routeGeometrySource={fields.routeGeometrySource}
+        routeGeometryJson={fields.routeGeometryJson}
       />
 
       {/* Practical Info */}

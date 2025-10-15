@@ -198,6 +198,8 @@ export interface RouteStoryFields {
   routeDistance: number // km
   routeDifficulty: 'easy' | 'moderate' | 'challenging'
   routeType: 'walking' | 'cycling' | 'driving'
+  routeGeometrySource: 'mapbox_directions' | 'custom_drawn'
+  routeGeometryJson?: string // GeoJSON LineString for custom drawn routes
   startLocation: {
     name: string
     latitude: number

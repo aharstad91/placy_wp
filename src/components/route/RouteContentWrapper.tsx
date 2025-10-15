@@ -18,6 +18,8 @@ interface RouteContentWrapperProps {
   routeDuration?: number
   routeDistance?: number
   routeDifficulty?: string
+  routeGeometrySource?: 'mapbox_directions' | 'custom_drawn'
+  routeGeometryJson?: string
 }
 
 export default function RouteContentWrapper({
@@ -25,7 +27,9 @@ export default function RouteContentWrapper({
   waypoints,
   routeDuration,
   routeDistance,
-  routeDifficulty
+  routeDifficulty,
+  routeGeometrySource = 'mapbox_directions',
+  routeGeometryJson
 }: RouteContentWrapperProps) {
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false)
   const [selectedPoi, setSelectedPoi] = useState<POI | null>(null)
@@ -117,6 +121,8 @@ export default function RouteContentWrapper({
         routeDuration={routeDuration}
         routeDistance={routeDistance}
         routeDifficulty={routeDifficulty}
+        routeGeometrySource={routeGeometrySource}
+        routeGeometryJson={routeGeometryJson}
       />
     </>
   )

@@ -38,6 +38,180 @@ function placy_enqueue_scripts() {
 }
 add_action( 'wp_enqueue_scripts', 'placy_enqueue_scripts' );
 
+/**
+ * Enqueue Mapbox Draw scripts and styles in WordPress admin
+ * Only loads on route_story edit screens
+ */
+function placy_admin_enqueue_mapbox_draw($hook) {
+    // Only load on route_story edit/new screens
+    global $post_type;
+    if (($hook === 'post.php' || $hook === 'post-new.php') && $post_type === 'route_story') {
+        
+        // Mapbox GL JS
+        wp_enqueue_style(
+            'mapbox-gl',
+            'https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css',
+            array(),
+            '3.0.1'
+        );
+        wp_enqueue_script(
+            'mapbox-gl',
+            'https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js',
+            array(),
+            '3.0.1',
+            false
+        );
+        
+        // Mapbox Draw
+        wp_enqueue_style(
+            'mapbox-draw',
+            'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css',
+            array('mapbox-gl'),
+            '1.4.3'
+        );
+        wp_enqueue_script(
+            'mapbox-draw',
+            'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js',
+            array('mapbox-gl'),
+            '1.4.3',
+            false
+        );
+        
+        // Custom admin CSS
+        wp_enqueue_style(
+            'placy-mapbox-draw-admin',
+            get_template_directory_uri() . '/mapbox-draw-admin.css',
+            array('mapbox-draw'),
+            '1.0.0'
+        );
+        
+        // Custom admin JS
+        wp_enqueue_script(
+            'placy-mapbox-draw-admin',
+            get_template_directory_uri() . '/mapbox-draw-admin.js',
+            array('jquery', 'mapbox-gl', 'mapbox-draw'),
+            '1.0.0',
+            true
+        );
+        
+        // Pass Mapbox token to JavaScript
+        // Use environment variable or define constant in wp-config.php
+        $mapbox_token = defined('MAPBOX_ACCESS_TOKEN') ? MAPBOX_ACCESS_TOKEN : getenv('NEXT_PUBLIC_MAPBOX_TOKEN');
+        
+        wp_localize_script(
+            'placy-mapbox-draw-admin',
+            'placyMapboxConfig',
+            array(
+                'token' => $mapbox_token,
+                'defaultCenter' => array(13.0, 65.0),
+                'defaultZoom' => 5
+            )
+        );
+    }
+}
+add_action('admin_enqueue_scripts', 'placy_admin_enqueue_mapbox_draw');
+
+/**
+ * AJAX handler to save route geometry directly to database
+ * Bypasses WordPress form submit to ensure data persists
+ */
+function placy_save_route_geometry_ajax() {
+    // Get post ID and verify it exists
+    $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+    
+    if (!$post_id) {
+        wp_send_json_error(array(
+            'message' => 'Missing post ID',
+            'debug' => $_POST
+        ));
+        return;
+    }
+    
+    // Verify nonce - try multiple nonce sources
+    $nonce = isset($_POST['nonce']) ? $_POST['nonce'] : '';
+    $nonce_valid = false;
+    
+    // Try standard update-post nonce
+    if (wp_verify_nonce($nonce, 'update-post_' . $post_id)) {
+        $nonce_valid = true;
+    }
+    
+    // If that fails, try checking if user has edit permissions directly
+    if (!$nonce_valid && current_user_can('edit_post', $post_id)) {
+        $nonce_valid = true;
+    }
+    
+    if (!$nonce_valid) {
+        wp_send_json_error(array(
+            'message' => 'Security check failed',
+            'post_id' => $post_id,
+            'nonce_provided' => !empty($nonce),
+            'user_can_edit' => current_user_can('edit_post', $post_id)
+        ));
+        return;
+    }
+    
+    // Verify this is a route_story post
+    if (get_post_type($post_id) !== 'route_story') {
+        wp_send_json_error(array(
+            'message' => 'Invalid post type',
+            'post_type' => get_post_type($post_id)
+        ));
+        return;
+    }
+    
+    $geometry_json = isset($_POST['geometry_json']) ? stripslashes($_POST['geometry_json']) : '';
+    
+    if (empty($geometry_json)) {
+        wp_send_json_error(array(
+            'message' => 'Empty geometry data'
+        ));
+        return;
+    }
+    
+    // Save directly to post meta using ACF field key (not field name)
+    // ACF requires the field_key format for update_field() to work
+    $field_key = 'field_route_geometry_json';
+    
+    // Try ACF update_field first
+    $updated = update_field($field_key, $geometry_json, $post_id);
+    
+    // If ACF fails, try direct post meta update as fallback
+    if ($updated === false) {
+        $meta_key = '_route_geometry_json';
+        $updated = update_post_meta($post_id, 'route_geometry_json', $geometry_json);
+        update_post_meta($post_id, $meta_key, $field_key);
+    }
+    
+    // Verify the save
+    $verify = get_field($field_key, $post_id);
+    
+    if ($verify && strlen($verify) > 0) {
+        wp_send_json_success(array(
+            'message' => 'Route geometry saved successfully',
+            'post_id' => $post_id,
+            'saved_length' => strlen($geometry_json),
+            'verified_length' => strlen($verify),
+            'method' => ($updated !== false) ? 'update_field' : 'update_post_meta'
+        ));
+    } else {
+        wp_send_json_error(array(
+            'message' => 'Failed to verify saved data',
+            'update_result' => $updated,
+            'field_key' => $field_key
+        ));
+    }
+}
+add_action('wp_ajax_save_route_geometry', 'placy_save_route_geometry_ajax');
+
+/**
+ * Increase PHP limits for large GeoJSON route data
+ */
+@ini_set('post_max_size', '64M');
+@ini_set('upload_max_filesize', '64M');
+@ini_set('memory_limit', '256M');
+@ini_set('max_input_vars', '5000');
+
 // Remove unnecessary WordPress features for headless setup
 remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
 remove_action( 'wp_print_styles', 'print_emoji_styles' );
@@ -1290,6 +1464,75 @@ function placy_register_acf_fields() {
                         'show_in_graphql' => 1,
                         'wrapper' => array(
                             'width' => '50',
+                        ),
+                    ),
+                ),
+            ),
+            // Route Geometry Source
+            array(
+                'key' => 'field_route_geometry_source',
+                'label' => 'Route Geometry Source',
+                'name' => 'route_geometry_source',
+                'type' => 'radio',
+                'instructions' => 'How should the route line be calculated?',
+                'required' => 1,
+                'choices' => array(
+                    'mapbox_directions' => 'Mapbox Directions API (automatic routing between waypoints)',
+                    'custom_drawn' => 'Custom Drawn Route (manual path using Mapbox Draw)',
+                ),
+                'default_value' => 'mapbox_directions',
+                'layout' => 'vertical',
+                'show_in_graphql' => 1,
+            ),
+            // Custom Route Geometry (GeoJSON)
+            array(
+                'key' => 'field_route_geometry_json',
+                'label' => 'Custom Route Geometry (GeoJSON)',
+                'name' => 'route_geometry_json',
+                'type' => 'textarea',
+                'instructions' => 'GeoJSON LineString data from Mapbox Draw (automatically populated)',
+                'rows' => 5,
+                'maxlength' => '', // Remove character limit
+                'readonly' => 0, // Changed from 1 to 0 - must be editable for WordPress to save it
+                'show_in_graphql' => 1,
+                'conditional_logic' => array(
+                    array(
+                        array(
+                            'field' => 'field_route_geometry_source',
+                            'operator' => '==',
+                            'value' => 'custom_drawn',
+                        ),
+                    ),
+                ),
+            ),
+            // Mapbox Draw Interface Trigger
+            array(
+                'key' => 'field_route_draw_interface',
+                'label' => 'Draw Route on Map',
+                'name' => 'route_draw_interface',
+                'type' => 'message',
+                'message' => '<div id="placy-mapbox-draw-trigger">
+                    <button type="button" class="button button-primary button-large" id="open-mapbox-draw">
+                        <span class="dashicons dashicons-location-alt"></span> Open Mapbox Draw
+                    </button>
+                    <p class="description">Click to open an interactive map where you can draw the route manually.</p>
+                    <div id="mapbox-draw-preview" style="margin-top: 15px; display: none;">
+                        <p><strong>Route drawn:</strong> <span id="draw-coordinates-count">0</span> coordinates</p>
+                        <button type="button" class="button" id="edit-mapbox-draw" style="display: none;">
+                            <span class="dashicons dashicons-edit"></span> Edit Route
+                        </button>
+                        <button type="button" class="button" id="clear-mapbox-draw" style="display: none;">
+                            <span class="dashicons dashicons-trash"></span> Clear Route
+                        </button>
+                    </div>
+                </div>',
+                'show_in_graphql' => 0,
+                'conditional_logic' => array(
+                    array(
+                        array(
+                            'field' => 'field_route_geometry_source',
+                            'operator' => '==',
+                            'value' => 'custom_drawn',
                         ),
                     ),
                 ),
