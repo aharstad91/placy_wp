@@ -63,6 +63,16 @@ export interface POI {
       slug: string
     }>
   }
+  poiCategories?: {
+    nodes: Array<{
+      id: string
+      name: string
+      slug: string
+      categoryFields?: {
+        categoryIcon?: string | string[]  // ACF select can return array
+      }
+    }>
+  }
   poiFields: {
     poiDescription: string
     poiImage?: {
@@ -215,7 +225,7 @@ export interface RouteStoryFields {
   mapBoundsWest?: number
   mapMinZoom?: number // Default 11
   mapMaxZoom?: number // Default 18
-  hideWaypointNumbers?: boolean // Toggle waypoint number visibility
+  waypointDisplayMode?: 'numbers' | 'icons' // How waypoints are displayed on map
   startLocation: {
     name: string
     latitude: number

@@ -30,7 +30,7 @@ interface RouteContentWrapperProps {
   }
   mapMinZoom?: number
   mapMaxZoom?: number
-  hideWaypointNumbers?: boolean
+  waypointDisplayMode?: 'numbers' | 'icons'
 }
 
 export default function RouteContentWrapper({
@@ -44,7 +44,7 @@ export default function RouteContentWrapper({
   mapBounds,
   mapMinZoom = 11,
   mapMaxZoom = 18,
-  hideWaypointNumbers = false
+  waypointDisplayMode = 'numbers'
 }: RouteContentWrapperProps) {
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false)
   const [selectedPoi, setSelectedPoi] = useState<POI | null>(null)
@@ -148,13 +148,19 @@ export default function RouteContentWrapper({
           if (wp.relatedPoi.nodes.length > 0) {
             // Waypoint with POI - use POI data
             const poi = wp.relatedPoi.nodes[0]
+            // Get category icon from first category (if exists)
+            const categoryIconRaw = poi.poiCategories?.nodes?.[0]?.categoryFields?.categoryIcon
+            // ACF select field can return array, so extract first value if array
+            const categoryIcon = Array.isArray(categoryIconRaw) ? categoryIconRaw[0] : categoryIconRaw
+            
             return {
               latitude: poi.poiFields?.poiLatitude || 0,
               longitude: poi.poiFields?.poiLongitude || 0,
               name: poi.title,
               icon: poi.poiFields?.poiIcon,
               image: poi.poiFields?.poiImage?.node?.sourceUrl,
-              estimatedTime: wp.estimatedTime
+              estimatedTime: wp.estimatedTime,
+              categoryIcon: categoryIcon
             }
           } else {
             // Waypoint without POI - use waypoint's own coordinates
@@ -174,7 +180,7 @@ export default function RouteContentWrapper({
         mapBounds={mapBounds}
         mapMinZoom={mapMinZoom}
         mapMaxZoom={mapMaxZoom}
-        hideWaypointNumbers={hideWaypointNumbers}
+        waypointDisplayMode={waypointDisplayMode}
       />
     </>
   )

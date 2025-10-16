@@ -22,6 +22,7 @@ interface RouteMapProps {
     icon?: string
     image?: string
     estimatedTime?: number
+    categoryIcon?: string // FontAwesome class from POI category
   }>
   // Preview mode props
   onMapClick?: () => void
@@ -49,7 +50,7 @@ interface RouteMapProps {
   mapMinZoom?: number
   mapMaxZoom?: number
   // Display settings
-  hideWaypointNumbers?: boolean
+  waypointDisplayMode?: 'numbers' | 'icons'
 }
 
 export default function RouteMap({
@@ -71,13 +72,14 @@ export default function RouteMap({
   mapBounds,
   mapMinZoom = 11,
   mapMaxZoom = 18,
-  hideWaypointNumbers = false
+  waypointDisplayMode = 'numbers'
 }: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [localSelectedPoi, setLocalSelectedPoi] = useState<POI | null>(selectedPoi || null)
+  
   const [showMiniPois, setShowMiniPois] = useState(() => {
     // Load Mini-POI visibility from localStorage
     if (typeof window !== 'undefined') {
@@ -342,8 +344,8 @@ export default function RouteMap({
         container.appendChild(imageContainer)
 
         // Horizontal wrapper for badge and label (below image) - single combined element
-        // Only show if hideWaypointNumbers is false
-        if (!hideWaypointNumbers) {
+        // Show number badge OR category icon based on waypointDisplayMode
+        if (waypointDisplayMode === 'numbers') {
           horizontalWrapper = document.createElement('div')
           horizontalWrapper.style.cssText = `
             display: flex;
@@ -376,10 +378,43 @@ export default function RouteMap({
             line-height: 18px;
           `
           horizontalWrapper.appendChild(badge)
+        } else if (waypointDisplayMode === 'icons' && waypoint.categoryIcon) {
+          // Show category icon badge to the LEFT of label
+          horizontalWrapper = document.createElement('div')
+          horizontalWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px 2px 2px;
+            background-color: rgba(0,0,0,0.15);
+            border-radius: 12px;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+          `
+
+          // Icon badge to the LEFT of label
+          const iconBadge = document.createElement('div')
+          iconBadge.innerHTML = `<i class="fa-solid ${waypoint.categoryIcon}"></i>`
+          iconBadge.style.cssText = `
+            width: 18px;
+            height: 18px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+          `
+          horizontalWrapper.appendChild(iconBadge)
         }
       } else {
-        // No image - only show numbered circle if hideWaypointNumbers is false
-        if (!hideWaypointNumbers) {
+        // No image - show numbered circle OR category icon based on waypointDisplayMode
+        if (waypointDisplayMode === 'numbers') {
+          // Show numbered circle (existing behavior)
           const numberCircle = document.createElement('div')
           numberCircle.innerHTML = waypoint.icon || (index + 1).toString()
           numberCircle.style.cssText = `
@@ -397,6 +432,24 @@ export default function RouteMap({
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           `
           container.appendChild(numberCircle)
+        } else if (waypointDisplayMode === 'icons' && waypoint.categoryIcon) {
+          // Show category icon instead of number
+          const iconCircle = document.createElement('div')
+          iconCircle.innerHTML = `<i class="fa-solid ${waypoint.categoryIcon}"></i>`
+          iconCircle.style.cssText = `
+            width: 36px;
+            height: 36px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          `
+          container.appendChild(iconCircle)
         }
       }
 
@@ -419,8 +472,8 @@ export default function RouteMap({
         `
         horizontalWrapper.appendChild(labelEl)
         container.appendChild(horizontalWrapper)
-      } else if (waypoint.image && hideWaypointNumbers) {
-        // For image markers WITHOUT badge (when numbers are hidden)
+      } else if (waypoint.image && waypointDisplayMode === 'icons') {
+        // For image markers WITHOUT badge (when icons mode is active)
         labelEl.style.cssText = `
           font-size: 12px;
           font-weight: 700;
@@ -439,7 +492,7 @@ export default function RouteMap({
           margin-top: 2px;
         `
         container.appendChild(labelEl)
-      } else if (!waypoint.image && !hideWaypointNumbers) {
+      } else if (!waypoint.image && waypointDisplayMode === 'numbers') {
         // For non-image markers with number circle, keep vertical layout with background
         labelEl.style.cssText = `
           font-size: 12px;
@@ -458,8 +511,8 @@ export default function RouteMap({
           -webkit-backdrop-filter: blur(4px);
         `
         container.appendChild(labelEl)
-      } else if (!waypoint.image && hideWaypointNumbers) {
-        // For non-image markers WITHOUT number circle (when numbers are hidden) - just show label
+      } else if (!waypoint.image && waypointDisplayMode === 'icons') {
+        // For non-image markers WITH icon circle (when icons mode is active) - show label
         labelEl.style.cssText = `
           font-size: 12px;
           font-weight: 700;

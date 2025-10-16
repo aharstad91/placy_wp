@@ -35,8 +35,29 @@ add_action( 'after_setup_theme', 'placy_setup' );
 // Enqueue styles
 function placy_enqueue_scripts() {
     wp_enqueue_style( 'placy-style', get_stylesheet_uri(), array(), '1.0.0' );
+    
+    // FontAwesome 6 for category icons
+    wp_enqueue_style(
+        'fontawesome',
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+        array(),
+        '6.5.1'
+    );
 }
 add_action( 'wp_enqueue_scripts', 'placy_enqueue_scripts' );
+
+/**
+ * Enqueue FontAwesome in WordPress admin
+ */
+function placy_admin_enqueue_fontawesome() {
+    wp_enqueue_style(
+        'fontawesome-admin',
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+        array(),
+        '6.5.1'
+    );
+}
+add_action('admin_enqueue_scripts', 'placy_admin_enqueue_fontawesome');
 
 /**
  * Enqueue Mapbox Draw scripts and styles in WordPress admin
@@ -474,16 +495,17 @@ function placy_register_cpts() {
         'rewrite' => array('slug' => 'poi'),
         'menu_icon' => 'dashicons-location',
         'menu_position' => 8,
-        'taxonomies' => array('poi_type'), // Support for POI type taxonomy
+        'taxonomies' => array('poi_type', 'poi_category'), // Support for POI type and category taxonomies
     ));
 }
 add_action('init', 'placy_register_cpts');
 
 /**
- * Register POI Type Taxonomy
- * Differentiates between major POIs (always visible) and minor POIs (zoom-dependent)
+ * Register POI Taxonomies
  */
 function placy_register_poi_taxonomy() {
+    // POI Type Taxonomy (Hoved-POI vs Mini-POI)
+    // Differentiates between major POIs (always visible) and minor POIs (zoom-dependent)
     register_taxonomy('poi_type', array('poi'), array(
         'labels' => array(
             'name' => 'POI Type',
@@ -502,7 +524,7 @@ function placy_register_poi_taxonomy() {
         'show_in_graphql' => true,
         'graphql_single_name' => 'poiType',
         'graphql_plural_name' => 'poiTypes',
-        'hierarchical' => false, // Tag-style, not category-style
+        'hierarchical' => true, // Category-style for radio selection
         'show_admin_column' => true,
         'show_in_menu' => true,
         'show_ui' => true,
@@ -532,8 +554,167 @@ function placy_register_poi_taxonomy() {
             )
         );
     }
+    
+    // POI Category Taxonomy (for category-based icons)
+    register_taxonomy('poi_category', array('poi'), array(
+        'labels' => array(
+            'name' => 'POI Categories',
+            'singular_name' => 'POI Category',
+            'menu_name' => 'POI Categories',
+            'all_items' => 'Alle kategorier',
+            'edit_item' => 'Rediger kategori',
+            'view_item' => 'Vis kategori',
+            'update_item' => 'Oppdater kategori',
+            'add_new_item' => 'Legg til ny kategori',
+            'new_item_name' => 'Ny kategorinavn',
+            'search_items' => 'Søk kategorier',
+        ),
+        'public' => true,
+        'show_in_rest' => true,
+        'show_in_graphql' => true,
+        'graphql_single_name' => 'poiCategory',
+        'graphql_plural_name' => 'poiCategories',
+        'hierarchical' => false, // Flat structure (no subcategories)
+        'show_admin_column' => true,
+        'show_in_menu' => true,
+        'show_ui' => true,
+        'rewrite' => array('slug' => 'poi-category'),
+    ));
+    
+    // Create default category terms with FontAwesome icons
+    $default_categories = array(
+        array(
+            'name' => 'Dagligliv & tjenester',
+            'slug' => 'dagligliv-tjenester',
+            'icon' => 'fa-shopping-basket',
+        ),
+        array(
+            'name' => 'Kafé & spisesteder',
+            'slug' => 'kafe-spisesteder',
+            'icon' => 'fa-coffee',
+        ),
+        array(
+            'name' => 'Natteliv',
+            'slug' => 'natteliv',
+            'icon' => 'fa-beer',
+        ),
+        array(
+            'name' => 'Handel & shopping',
+            'slug' => 'handel-shopping',
+            'icon' => 'fa-shopping-bag',
+        ),
+        array(
+            'name' => 'Grønt & blått',
+            'slug' => 'gront-blatt',
+            'icon' => 'fa-tree',
+        ),
+        array(
+            'name' => 'Kultur & opplevelser',
+            'slug' => 'kultur-opplevelser',
+            'icon' => 'fa-theater-masks',
+        ),
+        array(
+            'name' => 'Sport & trening',
+            'slug' => 'sport-trening',
+            'icon' => 'fa-running',
+        ),
+        array(
+            'name' => 'Oppvekst & utdanning',
+            'slug' => 'oppvekst-utdanning',
+            'icon' => 'fa-graduation-cap',
+        ),
+        array(
+            'name' => 'Transport & mobilitet',
+            'slug' => 'transport-mobilitet',
+            'icon' => 'fa-bus',
+        ),
+        array(
+            'name' => 'Helse & omsorg',
+            'slug' => 'helse-omsorg',
+            'icon' => 'fa-briefcase-medical',
+        ),
+        array(
+            'name' => 'Arbeid & studier',
+            'slug' => 'arbeid-studier',
+            'icon' => 'fa-briefcase',
+        ),
+        array(
+            'name' => 'Overnatting',
+            'slug' => 'overnatting',
+            'icon' => 'fa-bed',
+        ),
+        array(
+            'name' => 'Sjø & aktivitet',
+            'slug' => 'sjo-aktivitet',
+            'icon' => 'fa-ship',
+        ),
+        array(
+            'name' => 'Offentlige tjenester',
+            'slug' => 'offentlige-tjenester',
+            'icon' => 'fa-landmark',
+        ),
+    );
+    
+    // Auto-create categories disabled to avoid conflicts
+    // To create categories: Go to POI → POI Categories → Add New
+    // Then set the icon for each category in the ACF field
+    
+    /* Uncomment this block to auto-create categories (run once, then comment out again)
+    $existing_terms = get_terms(array(
+        'taxonomy' => 'poi_category',
+        'hide_empty' => false,
+    ));
+    
+    if (empty($existing_terms) || is_wp_error($existing_terms)) {
+        foreach ($default_categories as $category) {
+            if (!term_exists($category['slug'], 'poi_category')) {
+                wp_insert_term(
+                    $category['name'],
+                    'poi_category',
+                    array(
+                        'slug' => $category['slug']
+                    )
+                );
+            }
+        }
+    }
+    */
 }
 add_action('init', 'placy_register_poi_taxonomy');
+
+/**
+ * Helper function to create POI categories (call this once from functions.php, then remove)
+ * Uncomment and load once to create all categories, then comment out again
+ */
+/*
+function placy_create_poi_categories_once() {
+    $default_categories = array(
+        array('name' => 'Dagligliv & tjenester', 'slug' => 'dagligliv-tjenester', 'icon' => 'fa-shopping-basket'),
+        array('name' => 'Kafé & spisesteder', 'slug' => 'kafe-spisesteder', 'icon' => 'fa-coffee'),
+        array('name' => 'Natteliv', 'slug' => 'natteliv', 'icon' => 'fa-beer'),
+        array('name' => 'Handel & shopping', 'slug' => 'handel-shopping', 'icon' => 'fa-shopping-bag'),
+        array('name' => 'Grønt & blått', 'slug' => 'gront-blatt', 'icon' => 'fa-tree'),
+        array('name' => 'Kultur & opplevelser', 'slug' => 'kultur-opplevelser', 'icon' => 'fa-theater-masks'),
+        array('name' => 'Sport & trening', 'slug' => 'sport-trening', 'icon' => 'fa-running'),
+        array('name' => 'Oppvekst & utdanning', 'slug' => 'oppvekst-utdanning', 'icon' => 'fa-graduation-cap'),
+        array('name' => 'Transport & mobilitet', 'slug' => 'transport-mobilitet', 'icon' => 'fa-bus'),
+        array('name' => 'Helse & omsorg', 'slug' => 'helse-omsorg', 'icon' => 'fa-briefcase-medical'),
+        array('name' => 'Arbeid & studier', 'slug' => 'arbeid-studier', 'icon' => 'fa-briefcase'),
+        array('name' => 'Overnatting', 'slug' => 'overnatting', 'icon' => 'fa-bed'),
+        array('name' => 'Sjø & aktivitet', 'slug' => 'sjo-aktivitet', 'icon' => 'fa-ship'),
+        array('name' => 'Offentlige tjenester', 'slug' => 'offentlige-tjenester', 'icon' => 'fa-landmark'),
+    );
+    
+    foreach ($default_categories as $cat) {
+        if (!term_exists($cat['slug'], 'poi_category')) {
+            wp_insert_term($cat['name'], 'poi_category', array('slug' => $cat['slug']));
+        }
+    }
+    
+    echo '<div class="notice notice-success"><p>POI Categories created! Now comment out this function.</p></div>';
+}
+add_action('admin_notices', 'placy_create_poi_categories_once');
+*/
 
 /**
  * CUSTOM REWRITE RULES FOR HIERARCHICAL STORY URLs
@@ -1523,6 +1704,16 @@ function placy_register_acf_fields() {
         'key' => 'group_route_story',
         'title' => 'Route Story Fields',
         'fields' => array(
+            // TAB: Basic Info
+            array(
+                'key' => 'field_route_tab_basic',
+                'label' => '📋 Basic Info',
+                'name' => '',
+                'type' => 'tab',
+                'instructions' => '',
+                'placement' => 'top',
+                'endpoint' => 0,
+            ),
             // Related Project
             array(
                 'key' => 'field_route_related_prosjekt',
@@ -1598,6 +1789,84 @@ function placy_register_acf_fields() {
                 'wrapper' => array(
                     'width' => '25',
                 ),
+            ),
+            
+            // TAB: Hero Section
+            array(
+                'key' => 'field_route_tab_hero',
+                'label' => '🎬 Hero Section',
+                'name' => '',
+                'type' => 'tab',
+                'instructions' => '',
+                'placement' => 'top',
+                'endpoint' => 0,
+            ),
+            // Hero Section (Content for the route hero display)
+            array(
+                'key' => 'field_route_hero_group',
+                'label' => 'Hero Content',
+                'name' => 'hero_section',
+                'type' => 'group',
+                'instructions' => 'Top section with title, image, and optional video',
+                'show_in_graphql' => 1,
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_route_hero_title_new',
+                        'label' => 'Hero Title',
+                        'name' => 'title',
+                        'type' => 'text',
+                        'required' => 1,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '60',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_route_hero_image_new',
+                        'label' => 'Hero Image',
+                        'name' => 'hero_image',
+                        'type' => 'image',
+                        'instructions' => 'Main background image',
+                        'return_format' => 'array',
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '40',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_route_hero_subtitle_new',
+                        'label' => 'Hero Subtitle',
+                        'name' => 'subtitle',
+                        'type' => 'textarea',
+                        'rows' => 2,
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '60',
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_route_video_embed_new',
+                        'label' => 'Video Embed URL',
+                        'name' => 'video_embed_url',
+                        'type' => 'url',
+                        'instructions' => 'YouTube/Vimeo (optional flyover)',
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '40',
+                        ),
+                    ),
+                ),
+            ),
+            
+            // TAB: Route Setup
+            array(
+                'key' => 'field_route_tab_setup',
+                'label' => '📍 Route Setup',
+                'name' => '',
+                'type' => 'tab',
+                'instructions' => '',
+                'placement' => 'top',
+                'endpoint' => 0,
             ),
             // Start Location
             array(
@@ -1682,6 +1951,17 @@ function placy_register_acf_fields() {
                         ),
                     ),
                 ),
+            ),
+            
+            // TAB: Map Settings
+            array(
+                'key' => 'field_route_tab_map',
+                'label' => '🗺️ Map Settings',
+                'name' => '',
+                'type' => 'tab',
+                'instructions' => '',
+                'placement' => 'top',
+                'endpoint' => 0,
             ),
             // Route Geometry Source
             array(
@@ -1793,13 +2073,18 @@ function placy_register_acf_fields() {
             ),
             // Waypoint Display Settings
             array(
-                'key' => 'field_hide_waypoint_numbers',
-                'label' => 'Hide Waypoint Numbers',
-                'name' => 'hide_waypoint_numbers',
-                'type' => 'true_false',
-                'instructions' => 'Toggle waypoint number visibility. OFF = Show numbers and circles, ON = Hide numbers and circles',
-                'default_value' => 0,
-                'ui' => 1,
+                'key' => 'field_waypoint_display_mode',
+                'label' => 'Waypoint Display Mode',
+                'name' => 'waypoint_display_mode',
+                'type' => 'radio',
+                'instructions' => 'Choose how waypoints are displayed on the map',
+                'required' => 1,
+                'choices' => array(
+                    'numbers' => '🔢 Show numbered circles (1, 2, 3...)',
+                    'icons' => '🏷️ Show category icons (based on POI category)',
+                ),
+                'default_value' => 'numbers',
+                'layout' => 'vertical',
                 'show_in_graphql' => 1,
                 'wrapper' => array(
                     'width' => '100',
@@ -1833,62 +2118,6 @@ function placy_register_acf_fields() {
                             'field' => 'field_route_geometry_source',
                             'operator' => '==',
                             'value' => 'custom_drawn',
-                        ),
-                    ),
-                ),
-            ),
-            // Hero Section
-            array(
-                'key' => 'field_route_hero',
-                'label' => 'Hero Section',
-                'name' => 'hero_section',
-                'type' => 'group',
-                'instructions' => 'Top section with title, image, and optional video',
-                'show_in_graphql' => 1,
-                'sub_fields' => array(
-                    array(
-                        'key' => 'field_route_hero_title',
-                        'label' => 'Hero Title',
-                        'name' => 'title',
-                        'type' => 'text',
-                        'required' => 1,
-                        'show_in_graphql' => 1,
-                        'wrapper' => array(
-                            'width' => '60',
-                        ),
-                    ),
-                    array(
-                        'key' => 'field_route_hero_image',
-                        'label' => 'Hero Image',
-                        'name' => 'hero_image',
-                        'type' => 'image',
-                        'instructions' => 'Main background image',
-                        'return_format' => 'array',
-                        'show_in_graphql' => 1,
-                        'wrapper' => array(
-                            'width' => '40',
-                        ),
-                    ),
-                    array(
-                        'key' => 'field_route_hero_subtitle',
-                        'label' => 'Hero Subtitle',
-                        'name' => 'subtitle',
-                        'type' => 'textarea',
-                        'rows' => 2,
-                        'show_in_graphql' => 1,
-                        'wrapper' => array(
-                            'width' => '60',
-                        ),
-                    ),
-                    array(
-                        'key' => 'field_route_video_embed',
-                        'label' => 'Video Embed URL',
-                        'name' => 'video_embed_url',
-                        'type' => 'url',
-                        'instructions' => 'YouTube/Vimeo (optional flyover)',
-                        'show_in_graphql' => 1,
-                        'wrapper' => array(
-                            'width' => '40',
                         ),
                     ),
                 ),
@@ -2006,6 +2235,17 @@ function placy_register_acf_fields() {
                     ),
                 ),
             ),
+            
+            // TAB: Practical Info
+            array(
+                'key' => 'field_route_tab_practical',
+                'label' => 'ℹ️ Practical Info',
+                'name' => '',
+                'type' => 'tab',
+                'instructions' => '',
+                'placement' => 'top',
+                'endpoint' => 0,
+            ),
             // Practical Info
             array(
                 'key' => 'field_route_practical',
@@ -2069,6 +2309,66 @@ function placy_register_acf_fields() {
     ));
 }
 add_action('acf/init', 'placy_register_acf_fields');
+
+/**
+ * ACF FIELDS FOR POI CATEGORY TAXONOMY
+ * Adds icon selector to each category term
+ */
+function placy_register_poi_category_acf_fields() {
+    if (!function_exists('acf_add_local_field_group')) {
+        return;
+    }
+    
+    acf_add_local_field_group(array(
+        'key' => 'group_poi_category_fields',
+        'title' => 'POI Category Settings',
+        'fields' => array(
+            array(
+                'key' => 'field_category_icon',
+                'label' => 'Category Icon',
+                'name' => 'category_icon',
+                'graphql_field_name' => 'categoryIcon',
+                'type' => 'select',
+                'instructions' => 'Choose a FontAwesome icon for this category',
+                'required' => 1,
+                'choices' => array(
+                    'fa-shopping-basket' => '🛒 Dagligliv & tjenester (fa-shopping-basket)',
+                    'fa-coffee' => '☕ Kafé & spisesteder (fa-coffee)',
+                    'fa-beer' => '🍺 Natteliv (fa-beer)',
+                    'fa-shopping-bag' => '🏬 Handel & shopping (fa-shopping-bag)',
+                    'fa-tree' => '🌳 Grønt & blått (fa-tree)',
+                    'fa-theater-masks' => '🎭 Kultur & opplevelser (fa-theater-masks)',
+                    'fa-running' => '⚽ Sport & trening (fa-running)',
+                    'fa-graduation-cap' => '🎓 Oppvekst & utdanning (fa-graduation-cap)',
+                    'fa-bus' => '🚌 Transport & mobilitet (fa-bus)',
+                    'fa-briefcase-medical' => '⚕️ Helse & omsorg (fa-briefcase-medical)',
+                    'fa-briefcase' => '💼 Arbeid & studier (fa-briefcase)',
+                    'fa-bed' => '🛏️ Overnatting (fa-bed)',
+                    'fa-ship' => '⛵ Sjø & aktivitet (fa-ship)',
+                    'fa-landmark' => '🏛️ Offentlige tjenester (fa-landmark)',
+                ),
+                'default_value' => 'fa-map-marker-alt',
+                'allow_null' => 0,
+                'ui' => 1,
+                'ajax' => 0,
+                'return_format' => 'value',
+                'show_in_graphql' => 1,
+            ),
+        ),
+        'location' => array(
+            array(
+                array(
+                    'param' => 'taxonomy',
+                    'operator' => '==',
+                    'value' => 'poi_category',
+                ),
+            ),
+        ),
+        'show_in_graphql' => 1,
+        'graphql_field_name' => 'categoryFields',
+    ));
+}
+add_action('acf/init', 'placy_register_poi_category_acf_fields');
 
 /**
  * AUTO-POPULATE FRONTEND URL FOR PROSJEKT

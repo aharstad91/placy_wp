@@ -149,6 +149,16 @@ export const POI_FIELDS = gql`
         slug
       }
     }
+    poiCategories {
+      nodes {
+        id
+        name
+        slug
+        categoryFields {
+          categoryIcon
+        }
+      }
+    }
     poiFields {
       poiDescription
       poiImage {
@@ -431,7 +441,7 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
         mapBoundsWest
         mapMinZoom
         mapMaxZoom
-        hideWaypointNumbers
+        waypointDisplayMode
         startLocation {
           name
           latitude
@@ -472,6 +482,16 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
                 id
                 title
                 slug
+                poiCategories {
+                  nodes {
+                    id
+                    name
+                    slug
+                    categoryFields {
+                      categoryIcon
+                    }
+                  }
+                }
                 poiFields {
                   poiDescription
                   poiImage {
@@ -544,7 +564,7 @@ export const GET_ROUTE_STORIES_BY_PROJECT = gql`
           mapBoundsWest
           mapMinZoom
           mapMaxZoom
-          hideWaypointNumbers
+          waypointDisplayMode
           heroSection {
             title
             subtitle
