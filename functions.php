@@ -1791,6 +1791,20 @@ function placy_register_acf_fields() {
                 'show_in_graphql' => 1,
                 'wrapper' => array('width' => '50'),
             ),
+            // Waypoint Display Settings
+            array(
+                'key' => 'field_hide_waypoint_numbers',
+                'label' => 'Hide Waypoint Numbers',
+                'name' => 'hide_waypoint_numbers',
+                'type' => 'true_false',
+                'instructions' => 'Toggle waypoint number visibility. OFF = Show numbers and circles, ON = Hide numbers and circles',
+                'default_value' => 0,
+                'ui' => 1,
+                'show_in_graphql' => 1,
+                'wrapper' => array(
+                    'width' => '100',
+                ),
+            ),
             // Mapbox Draw Interface Trigger
             array(
                 'key' => 'field_route_draw_interface',
@@ -1896,11 +1910,11 @@ function placy_register_acf_fields() {
                 'sub_fields' => array(
                     array(
                         'key' => 'field_waypoint_poi',
-                        'label' => 'Related POI',
+                        'label' => 'Related POI (Optional)',
                         'name' => 'related_poi',
                         'type' => 'post_object',
-                        'instructions' => 'Select POI for this waypoint',
-                        'required' => 1,
+                        'instructions' => 'Select POI for this waypoint (optional - waypoints can exist without POI)',
+                        'required' => 0, // ⚠️ CHANGED: Waypoints can exist without POI
                         'post_type' => array('poi'),
                         'return_format' => 'object',
                         'show_in_graphql' => 1,
@@ -1945,6 +1959,49 @@ function placy_register_acf_fields() {
                         'show_in_graphql' => 1,
                         'wrapper' => array(
                             'width' => '100',
+                        ),
+                    ),
+                    // Coordinates (for waypoints without POI)
+                    array(
+                        'key' => 'field_waypoint_latitude',
+                        'label' => 'Latitude (if no POI)',
+                        'name' => 'waypoint_latitude',
+                        'type' => 'number',
+                        'instructions' => 'Only needed if no POI is selected',
+                        'required' => 0,
+                        'step' => 'any',
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '50',
+                        ),
+                        'conditional_logic' => array(
+                            array(
+                                array(
+                                    'field' => 'field_waypoint_poi',
+                                    'operator' => '==empty',
+                                ),
+                            ),
+                        ),
+                    ),
+                    array(
+                        'key' => 'field_waypoint_longitude',
+                        'label' => 'Longitude (if no POI)',
+                        'name' => 'waypoint_longitude',
+                        'type' => 'number',
+                        'instructions' => 'Only needed if no POI is selected',
+                        'required' => 0,
+                        'step' => 'any',
+                        'show_in_graphql' => 1,
+                        'wrapper' => array(
+                            'width' => '50',
+                        ),
+                        'conditional_logic' => array(
+                            array(
+                                array(
+                                    'field' => 'field_waypoint_poi',
+                                    'operator' => '==empty',
+                                ),
+                            ),
                         ),
                     ),
                 ),

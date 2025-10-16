@@ -546,11 +546,13 @@
 
     const originalCount = feature.geometry.coordinates.length;
     
-    // Simplify if too many points (>100)
-    if (originalCount > 100) {
-      const simplified = simplifyLineString(feature.geometry.coordinates, 0.0001);
+    // ⚠️ SIMPLIFICATION DISABLED - All points must be preserved for accurate route following
+    // Previous limit was 100 points, but routes need 300+ points to follow paths accurately
+    // Simplification is now completely disabled to ensure maximum route accuracy
+    /*
+    if (originalCount > 500) { // Increased from 100 to 500
+      const simplified = simplifyLineString(feature.geometry.coordinates, 0.00001); // More strict tolerance
       
-      // Create new feature object with simplified coordinates
       feature = {
         type: 'Feature',
         properties: feature.properties || {},
@@ -562,6 +564,11 @@
       
       showNotice(`Route simplified from ${originalCount} to ${simplified.length} points for optimal performance.`, 'info');
     }
+    */
+    
+    // Log coordinate count for debugging
+    console.log(`✅ Route saved with ${originalCount} coordinates (no simplification applied)`);
+    showNotice(`Route saved with ${originalCount} coordinates`, 'success');
     
     // Save to ACF hidden field
     const geoJSON = JSON.stringify(feature);

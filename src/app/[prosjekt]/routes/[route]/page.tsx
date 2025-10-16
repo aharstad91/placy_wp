@@ -62,16 +62,25 @@ export default async function RouteStoryPage({ params }: RouteStoryPageProps) {
   }
 
   // Prepare waypoints for Hero and components
-  const waypointsData = fields.routeWaypoints
-    .filter(wp => wp.relatedPoi.nodes.length > 0)
-    .map(wp => {
+  // ⚠️ CRITICAL: ALL waypoints must be preserved, with or without POI
+  const waypointsData = fields.routeWaypoints.map(wp => {
+    if (wp.relatedPoi.nodes.length > 0) {
+      // Waypoint has POI - use POI data
       const poi = wp.relatedPoi.nodes[0]
       return {
         latitude: poi.poiFields?.poiLatitude || 0,
         longitude: poi.poiFields?.poiLongitude || 0,
         name: poi.title
       }
-    })
+    } else {
+      // Waypoint without POI - use waypoint's own coordinates
+      return {
+        latitude: wp.waypointLatitude || 0,
+        longitude: wp.waypointLongitude || 0,
+        name: `Waypoint ${wp.waypointOrder}`
+      }
+    }
+  })
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -116,6 +125,7 @@ export default async function RouteStoryPage({ params }: RouteStoryPageProps) {
         }
         mapMinZoom={fields.mapMinZoom}
         mapMaxZoom={fields.mapMaxZoom}
+        hideWaypointNumbers={fields.hideWaypointNumbers}
       />
 
       {/* Practical Info */}

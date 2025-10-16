@@ -190,6 +190,9 @@ export interface RouteWaypoint {
   }
   description?: string
   estimatedTime?: number
+  // Coordinates (for waypoints without POI)
+  waypointLatitude?: number
+  waypointLongitude?: number
 }
 
 export interface RouteStoryFields {
@@ -212,6 +215,7 @@ export interface RouteStoryFields {
   mapBoundsWest?: number
   mapMinZoom?: number // Default 11
   mapMaxZoom?: number // Default 18
+  hideWaypointNumbers?: boolean // Toggle waypoint number visibility
   startLocation: {
     name: string
     latitude: number

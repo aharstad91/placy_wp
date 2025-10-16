@@ -30,6 +30,7 @@ interface RouteContentWrapperProps {
   }
   mapMinZoom?: number
   mapMaxZoom?: number
+  hideWaypointNumbers?: boolean
 }
 
 export default function RouteContentWrapper({
@@ -42,7 +43,8 @@ export default function RouteContentWrapper({
   routeGeometryJson,
   mapBounds,
   mapMinZoom = 11,
-  mapMaxZoom = 18
+  mapMaxZoom = 18,
+  hideWaypointNumbers = false
 }: RouteContentWrapperProps) {
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false)
   const [selectedPoi, setSelectedPoi] = useState<POI | null>(null)
@@ -69,6 +71,7 @@ export default function RouteContentWrapper({
     : []
 
   // Transform waypoints to POIs for MapboxMap (Hoved-POIs)
+  // ⚠️ CRITICAL: Only include waypoints that have POI data for POI markers
   const waypointPois: POI[] = waypoints
     .filter(wp => wp.relatedPoi.nodes.length > 0)
     .map(wp => wp.relatedPoi.nodes[0])
@@ -140,9 +143,10 @@ export default function RouteContentWrapper({
         selectedPoi={selectedPoi}
         onPoiSelect={setSelectedPoi}
         startLocation={startLocation}
-        waypoints={waypoints
-          .filter(wp => wp.relatedPoi.nodes.length > 0)
-          .map(wp => {
+        waypoints={waypoints.map(wp => {
+          // ⚠️ CRITICAL: ALL waypoints must be mapped, not filtered
+          if (wp.relatedPoi.nodes.length > 0) {
+            // Waypoint with POI - use POI data
             const poi = wp.relatedPoi.nodes[0]
             return {
               latitude: poi.poiFields?.poiLatitude || 0,
@@ -152,7 +156,16 @@ export default function RouteContentWrapper({
               image: poi.poiFields?.poiImage?.node?.sourceUrl,
               estimatedTime: wp.estimatedTime
             }
-          })}
+          } else {
+            // Waypoint without POI - use waypoint's own coordinates
+            return {
+              latitude: wp.waypointLatitude || 0,
+              longitude: wp.waypointLongitude || 0,
+              name: `Waypoint ${wp.waypointOrder}`,
+              estimatedTime: wp.estimatedTime
+            }
+          }
+        })}
         routeDuration={routeDuration}
         routeDistance={routeDistance}
         routeDifficulty={routeDifficulty}
@@ -161,6 +174,7 @@ export default function RouteContentWrapper({
         mapBounds={mapBounds}
         mapMinZoom={mapMinZoom}
         mapMaxZoom={mapMaxZoom}
+        hideWaypointNumbers={hideWaypointNumbers}
       />
     </>
   )

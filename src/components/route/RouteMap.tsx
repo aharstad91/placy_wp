@@ -48,6 +48,8 @@ interface RouteMapProps {
   }
   mapMinZoom?: number
   mapMaxZoom?: number
+  // Display settings
+  hideWaypointNumbers?: boolean
 }
 
 export default function RouteMap({
@@ -68,7 +70,8 @@ export default function RouteMap({
   routeGeometryJson,
   mapBounds,
   mapMinZoom = 11,
-  mapMaxZoom = 18
+  mapMaxZoom = 18,
+  hideWaypointNumbers = false
 }: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -339,57 +342,62 @@ export default function RouteMap({
         container.appendChild(imageContainer)
 
         // Horizontal wrapper for badge and label (below image) - single combined element
-        horizontalWrapper = document.createElement('div')
-        horizontalWrapper.style.cssText = `
-          display: flex;
-          align-items: center;
-          gap: 3px;
-          padding: 2px 6px 2px 2px;
-          background-color: rgba(0,0,0,0.15);
-          border-radius: 12px;
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-        `
+        // Only show if hideWaypointNumbers is false
+        if (!hideWaypointNumbers) {
+          horizontalWrapper = document.createElement('div')
+          horizontalWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px 2px 2px;
+            background-color: rgba(0,0,0,0.15);
+            border-radius: 12px;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+          `
 
-        // Number badge to the LEFT of label
-        const badge = document.createElement('div')
-        badge.textContent = (index + 1).toString()
-        badge.style.cssText = `
-          width: 18px;
-          height: 18px;
-          background-color: #3b82f6;
-          color: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: bold;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          flex-shrink: 0;
-          line-height: 18px;
-        `
-        horizontalWrapper.appendChild(badge)
+          // Number badge to the LEFT of label
+          const badge = document.createElement('div')
+          badge.textContent = (index + 1).toString()
+          badge.style.cssText = `
+            width: 18px;
+            height: 18px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            line-height: 18px;
+          `
+          horizontalWrapper.appendChild(badge)
+        }
       } else {
-        // No image, show numbered circle
-        const numberCircle = document.createElement('div')
-        numberCircle.innerHTML = waypoint.icon || (index + 1).toString()
-        numberCircle.style.cssText = `
-          width: 36px;
-          height: 36px;
-          background-color: #3b82f6;
-          color: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 16px;
-          border: 2px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        `
-        container.appendChild(numberCircle)
+        // No image - only show numbered circle if hideWaypointNumbers is false
+        if (!hideWaypointNumbers) {
+          const numberCircle = document.createElement('div')
+          numberCircle.innerHTML = waypoint.icon || (index + 1).toString()
+          numberCircle.style.cssText = `
+            width: 36px;
+            height: 36px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          `
+          container.appendChild(numberCircle)
+        }
       }
 
       // Label text with white color and lighter shadow
@@ -397,7 +405,7 @@ export default function RouteMap({
       labelEl.textContent = waypoint.name
       
       if (waypoint.image && horizontalWrapper) {
-        // For image markers, label is part of horizontal wrapper (no separate background)
+        // For image markers with badge, label is part of horizontal wrapper (no separate background)
         labelEl.style.cssText = `
           font-size: 12px;
           font-weight: 700;
@@ -411,8 +419,47 @@ export default function RouteMap({
         `
         horizontalWrapper.appendChild(labelEl)
         container.appendChild(horizontalWrapper)
-      } else {
-        // For non-image markers, keep vertical layout with background
+      } else if (waypoint.image && hideWaypointNumbers) {
+        // For image markers WITHOUT badge (when numbers are hidden)
+        labelEl.style.cssText = `
+          font-size: 12px;
+          font-weight: 700;
+          color: white;
+          text-align: center;
+          max-width: 100px;
+          line-height: 1.3;
+          text-shadow: 
+            0 1px 2px rgba(0,0,0,0.8),
+            0 2px 4px rgba(0,0,0,0.5);
+          padding: 3px 6px;
+          background-color: rgba(0,0,0,0.15);
+          border-radius: 4px;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          margin-top: 2px;
+        `
+        container.appendChild(labelEl)
+      } else if (!waypoint.image && !hideWaypointNumbers) {
+        // For non-image markers with number circle, keep vertical layout with background
+        labelEl.style.cssText = `
+          font-size: 12px;
+          font-weight: 700;
+          color: white;
+          text-align: center;
+          max-width: 100px;
+          line-height: 1.3;
+          text-shadow: 
+            0 1px 2px rgba(0,0,0,0.8),
+            0 2px 4px rgba(0,0,0,0.5);
+          padding: 3px 6px;
+          background-color: rgba(0,0,0,0.15);
+          border-radius: 4px;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+        `
+        container.appendChild(labelEl)
+      } else if (!waypoint.image && hideWaypointNumbers) {
+        // For non-image markers WITHOUT number circle (when numbers are hidden) - just show label
         labelEl.style.cssText = `
           font-size: 12px;
           font-weight: 700;

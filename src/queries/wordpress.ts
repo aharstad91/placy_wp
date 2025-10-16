@@ -431,6 +431,7 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
         mapBoundsWest
         mapMinZoom
         mapMaxZoom
+        hideWaypointNumbers
         startLocation {
           name
           latitude
@@ -493,6 +494,8 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
           }
           description
           estimatedTime
+          waypointLatitude
+          waypointLongitude
         }
         practicalInfo {
           bestSeason
@@ -541,6 +544,7 @@ export const GET_ROUTE_STORIES_BY_PROJECT = gql`
           mapBoundsWest
           mapMinZoom
           mapMaxZoom
+          hideWaypointNumbers
           heroSection {
             title
             subtitle
