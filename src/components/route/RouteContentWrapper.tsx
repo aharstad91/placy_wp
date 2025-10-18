@@ -28,8 +28,6 @@ interface RouteContentWrapperProps {
     east: number
     west: number
   }
-  mapMinZoom?: number
-  mapMaxZoom?: number
   waypointDisplayMode?: 'numbers' | 'icons'
 }
 
@@ -42,8 +40,6 @@ export default function RouteContentWrapper({
   routeGeometrySource = 'mapbox_directions',
   routeGeometryJson,
   mapBounds,
-  mapMinZoom = 11,
-  mapMaxZoom = 18,
   waypointDisplayMode = 'numbers'
 }: RouteContentWrapperProps) {
   const [isMapOverlayOpen, setIsMapOverlayOpen] = useState(false)
@@ -148,10 +144,8 @@ export default function RouteContentWrapper({
           if (wp.relatedPoi.nodes.length > 0) {
             // Waypoint with POI - use POI data
             const poi = wp.relatedPoi.nodes[0]
-            // Get category icon from first category (if exists)
-            const categoryIconRaw = poi.poiCategories?.nodes?.[0]?.categoryFields?.categoryIcon
-            // ACF select field can return array, so extract first value if array
-            const categoryIcon = Array.isArray(categoryIconRaw) ? categoryIconRaw[0] : categoryIconRaw
+            // Get category icon SVG URL from first category (if exists)
+            const categoryIconUrl = poi.poiCategories?.nodes?.[0]?.categoryFields?.categoryIcon?.node?.sourceUrl
             
             return {
               latitude: poi.poiFields?.poiLatitude || 0,
@@ -160,7 +154,7 @@ export default function RouteContentWrapper({
               icon: poi.poiFields?.poiIcon,
               image: poi.poiFields?.poiImage?.node?.sourceUrl,
               estimatedTime: wp.estimatedTime,
-              categoryIcon: categoryIcon
+              categoryIcon: categoryIconUrl
             }
           } else {
             // Waypoint without POI - use waypoint's own coordinates
@@ -178,8 +172,6 @@ export default function RouteContentWrapper({
         routeGeometrySource={routeGeometrySource}
         routeGeometryJson={routeGeometryJson}
         mapBounds={mapBounds}
-        mapMinZoom={mapMinZoom}
-        mapMaxZoom={mapMaxZoom}
         waypointDisplayMode={waypointDisplayMode}
       />
     </>

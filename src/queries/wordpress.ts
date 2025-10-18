@@ -155,7 +155,12 @@ export const POI_FIELDS = gql`
         name
         slug
         categoryFields {
-          categoryIcon
+          categoryIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
         }
       }
     }
@@ -439,8 +444,6 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
         mapBoundsSouth
         mapBoundsEast
         mapBoundsWest
-        mapMinZoom
-        mapMaxZoom
         waypointDisplayMode
         startLocation {
           name
@@ -488,7 +491,12 @@ export const GET_ROUTE_STORY_BY_SLUG = gql`
                     name
                     slug
                     categoryFields {
-                      categoryIcon
+                      categoryIcon {
+                        node {
+                          sourceUrl
+                          altText
+                        }
+                      }
                     }
                   }
                 }
@@ -562,8 +570,6 @@ export const GET_ROUTE_STORIES_BY_PROJECT = gql`
           mapBoundsSouth
           mapBoundsEast
           mapBoundsWest
-          mapMinZoom
-          mapMaxZoom
           waypointDisplayMode
           heroSection {
             title

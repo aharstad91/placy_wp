@@ -59,9 +59,10 @@ export default function MapboxMap({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11', // Clean, light style
+      style: 'mapbox://styles/mapbox/outdoors-v12', // Outdoor/terrain style with contour lines
       center: center,
       zoom: zoom,
+      maxZoom: 17, // Maximum zoom level
       attributionControl: false
     })
 
@@ -69,12 +70,37 @@ export default function MapboxMap({
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
     map.current.on('load', () => {
+      console.log(`🗺️ Map loaded with initial zoom: ${map.current?.getZoom().toFixed(2)}`)
+      
+      // Log all layers to see what we're working with
+      if (map.current) {
+        const style = map.current.getStyle()
+        if (style && style.layers) {
+          console.log('🗺️ All map layers:', style.layers.map((l: any) => `${l.id} (${l.type})`))
+          
+          // Hide all symbol layers (labels, POIs, icons, text)
+          style.layers.forEach((layer: any) => {
+            if (layer.type === 'symbol') {
+              map.current?.setLayoutProperty(layer.id, 'visibility', 'none')
+              console.log(`🚫 Hid symbol layer: ${layer.id}`)
+            }
+          })
+        }
+      }
+      
       setIsMapLoaded(true)
+    })
+
+    // Log zoom changes
+    map.current.on('zoom', () => {
+      if (map.current) {
+        console.log(`🔍 Zoom changed to: ${map.current.getZoom().toFixed(2)}`)
+      }
     })
 
     return () => {
       // Cleanup markers
-      markers.current.forEach(marker => marker.remove())
+      markers.current.forEach((marker: mapboxgl.Marker) => marker.remove())
       markers.current = []
       
       // Cleanup map
@@ -90,12 +116,52 @@ export default function MapboxMap({
     if (!map.current || !isMapLoaded) return
 
     // Remove existing markers
-    markers.current.forEach(marker => marker.remove())
+    markers.current.forEach((marker: mapboxgl.Marker) => marker.remove())
     markers.current = []
+
+    // Store marker elements and their metadata for zoom updates
+    const markerElements: Array<{
+      el: HTMLElement
+      iconEl: HTMLElement | null
+      baseMarkerSize: number
+      baseBorderWidth: number
+      baseIconFontSize: number
+      markerOpacity: number
+    }> = []
+
+    // Global zoom handler for all markers
+    const handleZoomChange = () => {
+      if (!map.current) return
+      
+      const currentZoom = map.current.getZoom()
+      // Progressive scaling: 1x below 15, 2x at 15-16, 3x at 16+
+      let scaleFactor = 1.0
+      if (currentZoom >= 16) {
+        scaleFactor = 3.0
+      } else if (currentZoom >= 15) {
+        scaleFactor = 2.0
+      }
+      
+      console.log(`🎯 MapboxMap POI scaling | Zoom: ${currentZoom.toFixed(2)} | ScaleFactor: ${scaleFactor} | Markers: ${markerElements.length}`)
+      
+      markerElements.forEach(({ el, iconEl, baseMarkerSize, baseBorderWidth, baseIconFontSize }) => {
+        const adjustedMarkerSize = baseMarkerSize * scaleFactor
+        const adjustedBorderWidth = baseBorderWidth * scaleFactor
+        const adjustedIconFontSize = baseIconFontSize * scaleFactor
+        
+        el.style.width = `${adjustedMarkerSize}px`
+        el.style.height = `${adjustedMarkerSize}px`
+        el.style.borderWidth = `${adjustedBorderWidth}px`
+        
+        if (iconEl) {
+          iconEl.style.fontSize = `${adjustedIconFontSize}px`
+        }
+      })
+    }
 
     // Add markers for each POI
     pois.forEach((poi) => {
-      const { poiLatitude, poiLongitude, poiIcon } = poi.poiFields
+      const { poiLatitude, poiLongitude } = poi.poiFields
       
       if (!poiLatitude || !poiLongitude) return
 
@@ -104,6 +170,9 @@ export default function MapboxMap({
       
       // Skip Mini-POIs if toggle is off
       if (isMiniPoi && !showMiniPois) return
+
+      // Get category icon (SVG file) - prioritize first category
+      const categoryIcon = poi.poiCategories?.nodes?.[0]?.categoryFields?.categoryIcon?.node?.sourceUrl || null
 
       // Create container for marker + label
       const container = document.createElement('div')
@@ -115,41 +184,61 @@ export default function MapboxMap({
       `
       container.dataset.poiType = isMiniPoi ? 'minor' : 'major'
 
-      // Adjust size and styling based on POI type
-      const markerSize = isMiniPoi ? 30 : 40
-      const borderWidth = isMiniPoi ? 2 : 3
-      const iconFontSize = isMiniPoi ? 16 : 20
+      // Base sizes for POI types
+      const baseMarkerSize = isMiniPoi ? 30 : 40
+      const baseBorderWidth = isMiniPoi ? 2 : 3
+      const baseIconFontSize = isMiniPoi ? 16 : 20
       const markerOpacity = isMiniPoi ? 0.85 : 1
 
       // Create custom marker element (pin)
       const el = document.createElement('div')
       el.className = 'poi-marker'
       el.style.cssText = `
-        width: ${markerSize}px;
-        height: ${markerSize}px;
+        width: ${baseMarkerSize}px;
+        height: ${baseMarkerSize}px;
         background-color: #10b981;
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
-        border: ${borderWidth}px solid white;
+        border: ${baseBorderWidth}px solid white;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: transform 0.2s;
+        transition: all 0.3s ease;
         position: relative;
         opacity: ${markerOpacity};
       `
       
-      // Add icon if available
-      if (poiIcon) {
-        const iconEl = document.createElement('span')
-        iconEl.textContent = poiIcon
+      // Add icon from category (SVG file)
+      let iconEl: HTMLElement | null = null
+      if (categoryIcon) {
+        // categoryIcon is now a URL to the SVG file
+        const iconUrl = categoryIcon
+        
+        // Create container for SVG using img tag (simpler and more reliable)
+        const imgEl = document.createElement('img')
+        imgEl.src = iconUrl
+        iconEl = imgEl
         iconEl.style.cssText = `
           transform: rotate(45deg);
-          font-size: ${iconFontSize}px;
+          width: ${baseIconFontSize}px;
+          height: ${baseIconFontSize}px;
+          filter: brightness(0) invert(1);
+          display: block;
         `
+        
         el.appendChild(iconEl)
       }
+      
+      // Store marker element data for zoom updates
+      markerElements.push({
+        el,
+        iconEl,
+        baseMarkerSize,
+        baseBorderWidth,
+        baseIconFontSize,
+        markerOpacity
+      })
 
       // Create label element
       const labelEl = document.createElement('div')
@@ -178,6 +267,7 @@ export default function MapboxMap({
       const updateLabelVisibility = () => {
         if (map.current) {
           const zoom = map.current.getZoom()
+          console.log(`🔍 Zoom level: ${zoom.toFixed(2)} | Labels visible: ${zoom >= 13}`)
           // Show labels when zoom level is 13 or higher (adjust this threshold as needed)
           labelEl.style.opacity = zoom >= 13 ? '1' : '0'
         }
@@ -215,9 +305,11 @@ export default function MapboxMap({
         if (onPoiClick && map.current) {
           // Center map on this POI when clicked with offset for bottom sheet
           const currentZoom = map.current.getZoom()
+          const targetZoom = Math.max(currentZoom, 14.5)
+          console.log(`📍 POI clicked: "${poi.title}" | Current zoom: ${currentZoom.toFixed(2)} | Target zoom: ${targetZoom.toFixed(2)}`)
           map.current.easeTo({
             center: [poiLongitude, poiLatitude],
-            zoom: Math.max(currentZoom, 14.5), // Zoom in to at least 14.5
+            zoom: targetZoom, // Zoom in to at least 14.5
             offset: [0, -200], // Offset upwards by 200px to center above bottom sheet
             duration: 500,
             essential: true // This animation is essential and will not be interrupted
@@ -230,12 +322,28 @@ export default function MapboxMap({
       markers.current.push(marker)
     })
 
+    // Apply initial zoom scaling to all markers
+    handleZoomChange()
+
+    // Listen to zoom changes globally
+    if (map.current) {
+      map.current.on('zoom', handleZoomChange)
+    }
+
+    // Cleanup zoom listener
+    return () => {
+      if (map.current) {
+        map.current.off('zoom', handleZoomChange)
+      }
+    }
+
     // Update Mini-POI visibility based on zoom level
     const updateMiniPoiVisibility = () => {
       if (!map.current) return
       const currentZoom = map.current.getZoom()
+      console.log(`🗺️ Zoom level: ${currentZoom.toFixed(2)} | Mini-POIs visible at zoom 12+`)
       
-      markers.current.forEach(marker => {
+      markers.current.forEach((marker: mapboxgl.Marker) => {
         const element = marker.getElement()
         if (element.dataset.poiType === 'minor') {
           // Show Mini-POIs only at zoom 12+

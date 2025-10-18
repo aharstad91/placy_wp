@@ -40,18 +40,20 @@ interface RouteMapProps {
   // Route geometry
   routeGeometrySource?: 'mapbox_directions' | 'custom_drawn'
   routeGeometryJson?: string
-  // Map bounds and zoom
+  // Map bounds
   mapBounds?: {
     north: number
     south: number
     east: number
     west: number
   }
-  mapMinZoom?: number
-  mapMaxZoom?: number
   // Display settings
   waypointDisplayMode?: 'numbers' | 'icons'
 }
+
+// Standardized zoom levels for consistent UX across all routes
+const MAP_MIN_ZOOM = 11  // Prevents zooming too far out
+const MAP_MAX_ZOOM = 17  // Prevents zooming too close
 
 export default function RouteMap({
   mode,
@@ -70,8 +72,6 @@ export default function RouteMap({
   routeGeometrySource = 'mapbox_directions',
   routeGeometryJson,
   mapBounds,
-  mapMinZoom = 11,
-  mapMaxZoom = 18,
   waypointDisplayMode = 'numbers'
 }: RouteMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -131,15 +131,15 @@ export default function RouteMap({
       
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
+        style: 'mapbox://styles/mapbox/outdoors-v12',
         bounds: bounds,
         fitBoundsOptions: {
           padding: mode === 'preview' ? 50 : 80,
           duration: 0 // No animation on initial load
         },
         maxBounds: maxBounds, // Restrict panning outside this area
-        minZoom: mapMinZoom,  // Prevent zooming too far out
-        maxZoom: mapMaxZoom   // Prevent zooming too close
+        minZoom: MAP_MIN_ZOOM,  // Prevent zooming too far out
+        maxZoom: MAP_MAX_ZOOM   // Prevent zooming too close
       })
 
       // Add navigation controls for fullscreen mode
@@ -151,8 +151,33 @@ export default function RouteMap({
 
       map.current.on('load', () => {
         hasLoaded = true
+        console.log(`🗺️ RouteMap loaded with zoom: ${map.current?.getZoom().toFixed(2)}`)
+        
+        // Hide all Mapbox POI/label layers to keep map clean
+        if (map.current) {
+          const style = map.current.getStyle()
+          if (style && style.layers) {
+            console.log('🗺️ All RouteMap layers:', style.layers.map((l: any) => `${l.id} (${l.type})`))
+            
+            // Hide all symbol layers (labels, POIs, icons, text)
+            style.layers.forEach((layer: any) => {
+              if (layer.type === 'symbol') {
+                map.current?.setLayoutProperty(layer.id, 'visibility', 'none')
+                console.log(`🚫 Hid RouteMap symbol layer: ${layer.id}`)
+              }
+            })
+          }
+        }
+        
         setMapLoaded(true)
         setMapError(false)
+      })
+
+      // Log all zoom changes
+      map.current.on('zoom', () => {
+        if (map.current) {
+          console.log(`🔍 RouteMap zoom: ${map.current.getZoom().toFixed(2)}`)
+        }
       })
 
       map.current.on('error', (e) => {
@@ -210,6 +235,87 @@ export default function RouteMap({
     markersRef.current.forEach(marker => marker.remove())
     markersRef.current = []
 
+    // Store marker elements for dynamic zoom scaling
+    const markerElements: Array<{
+      type: 'start' | 'waypoint-with-image' | 'waypoint-no-image'
+      mainElement: HTMLElement // The main icon/image element
+      badgeElement?: HTMLElement // Optional badge element
+      svgElement?: HTMLImageElement // Optional SVG img element (for category icons)
+      badgeSvgElement?: HTMLImageElement // Optional SVG img element in badge
+      baseSizes: {
+        main: number
+        badge?: number
+        fontSize?: number
+        svgIcon?: number // Base size for SVG icons
+        badgeSvgIcon?: number // Base size for badge SVG icons
+      }
+    }> = []
+
+    // Global zoom handler for all markers
+    const handleZoomChange = () => {
+      if (!map.current) return
+      
+      const currentZoom = map.current.getZoom()
+      // Progressive scaling: 1x below 15, 2x at 15-16, 3x at 16+
+      let scaleFactor = 1.0
+      if (currentZoom >= 16) {
+        scaleFactor = 3.0
+      } else if (currentZoom >= 15) {
+        scaleFactor = 2.0
+      }
+      
+      console.log(`🎯 RouteMap marker scaling | Zoom: ${currentZoom.toFixed(2)} | ScaleFactor: ${scaleFactor} | Markers: ${markerElements.length}`)
+      
+      markerElements.forEach(({ mainElement, badgeElement, svgElement, badgeSvgElement, baseSizes }) => {
+        const adjustedMainSize = baseSizes.main * scaleFactor
+        mainElement.style.width = `${adjustedMainSize}px`
+        mainElement.style.height = `${adjustedMainSize}px`
+        
+        // Scale SVG icon in main element (category icon in waypoint circle)
+        if (svgElement && baseSizes.svgIcon) {
+          const adjustedSvgSize = baseSizes.svgIcon * scaleFactor
+          svgElement.style.width = `${adjustedSvgSize}px`
+          svgElement.style.height = `${adjustedSvgSize}px`
+        }
+        
+        if (badgeElement && baseSizes.badge) {
+          const adjustedBadgeSize = baseSizes.badge * scaleFactor
+          badgeElement.style.width = `${adjustedBadgeSize}px`
+          badgeElement.style.height = `${adjustedBadgeSize}px`
+          badgeElement.style.lineHeight = `${adjustedBadgeSize}px`
+          
+          // Scale SVG icon in badge
+          if (badgeSvgElement && baseSizes.badgeSvgIcon) {
+            const adjustedBadgeSvgSize = baseSizes.badgeSvgIcon * scaleFactor
+            badgeSvgElement.style.width = `${adjustedBadgeSvgSize}px`
+            badgeSvgElement.style.height = `${adjustedBadgeSvgSize}px`
+          }
+          
+          // Update badge font size too
+          if (baseSizes.fontSize) {
+            const adjustedBadgeFontSize = baseSizes.fontSize * scaleFactor
+            badgeElement.style.fontSize = `${adjustedBadgeFontSize}px`
+            // Also update any child elements (like FontAwesome icons)
+            const badgeIcon = badgeElement.querySelector('i')
+            if (badgeIcon) {
+              (badgeIcon as HTMLElement).style.fontSize = `${adjustedBadgeFontSize}px`
+            }
+          }
+        }
+        
+        if (baseSizes.fontSize) {
+          const adjustedFontSize = baseSizes.fontSize * scaleFactor
+          // Update mainElement fontSize
+          mainElement.style.fontSize = `${adjustedFontSize}px`
+          // Also update any child elements (like FontAwesome icons in numberCircle/iconCircle)
+          const mainIcon = mainElement.querySelector('i')
+          if (mainIcon) {
+            (mainIcon as HTMLElement).style.fontSize = `${adjustedFontSize}px`
+          }
+        }
+      })
+    }
+
     // Add START LOCATION marker with same design as POI markers
     const startMarkerEl = document.createElement('div')
     startMarkerEl.style.cssText = `
@@ -234,6 +340,12 @@ export default function RouteMap({
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         background-color: white;
       `
+      // Store for zoom scaling
+      markerElements.push({
+        type: 'start',
+        mainElement: startIcon,
+        baseSizes: { main: 40 }
+      })
     } else {
       startIcon.innerHTML = '🚩'
       startIcon.style.cssText = `
@@ -245,6 +357,12 @@ export default function RouteMap({
         font-size: 28px;
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       `
+      // Store for zoom scaling
+      markerElements.push({
+        type: 'start',
+        mainElement: startIcon,
+        baseSizes: { main: 32, fontSize: 28 }
+      })
     }
     startMarkerEl.appendChild(startIcon)
 
@@ -280,6 +398,13 @@ export default function RouteMap({
       flex-shrink: 0;
       line-height: 18px;
     `
+    // Update the markerElement to include the badge
+    const lastMarker = markerElements[markerElements.length - 1]
+    if (lastMarker) {
+      lastMarker.badgeElement = startBadge
+      lastMarker.baseSizes.badge = 18
+      lastMarker.baseSizes.fontSize = 11
+    }
     startWrapper.appendChild(startBadge)
 
     // Start label
@@ -342,6 +467,13 @@ export default function RouteMap({
         `
         imageContainer.appendChild(img)
         container.appendChild(imageContainer)
+        
+        // Store for zoom scaling
+        markerElements.push({
+          type: 'waypoint-with-image',
+          mainElement: imageContainer,
+          baseSizes: { main: 32 }
+        })
 
         // Horizontal wrapper for badge and label (below image) - single combined element
         // Show number badge OR category icon based on waypointDisplayMode
@@ -377,6 +509,13 @@ export default function RouteMap({
             flex-shrink: 0;
             line-height: 18px;
           `
+          // Update the last marker element to include badge
+          const lastMarker = markerElements[markerElements.length - 1]
+          if (lastMarker) {
+            lastMarker.badgeElement = badge
+            lastMarker.baseSizes.badge = 18
+            lastMarker.baseSizes.fontSize = 10
+          }
           horizontalWrapper.appendChild(badge)
         } else if (waypointDisplayMode === 'icons' && waypoint.categoryIcon) {
           // Show category icon badge to the LEFT of label
@@ -394,7 +533,28 @@ export default function RouteMap({
 
           // Icon badge to the LEFT of label
           const iconBadge = document.createElement('div')
-          iconBadge.innerHTML = `<i class="fa-solid ${waypoint.categoryIcon}"></i>`
+          
+          // Check if categoryIcon is a URL (SVG file) or FontAwesome class
+          const isSvgUrl = waypoint.categoryIcon.startsWith('http')
+          let badgeSvgImg: HTMLImageElement | undefined
+          
+          if (isSvgUrl) {
+            // Use SVG file as img
+            const imgEl = document.createElement('img')
+            imgEl.src = waypoint.categoryIcon
+            imgEl.alt = 'Category icon'
+            imgEl.style.cssText = `
+              width: 10px;
+              height: 10px;
+              filter: brightness(0) invert(1);
+            `
+            iconBadge.appendChild(imgEl)
+            badgeSvgImg = imgEl
+          } else {
+            // Use FontAwesome icon
+            iconBadge.innerHTML = `<i class="fa-solid ${waypoint.categoryIcon}"></i>`
+          }
+          
           iconBadge.style.cssText = `
             width: 18px;
             height: 18px;
@@ -409,6 +569,17 @@ export default function RouteMap({
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             flex-shrink: 0;
           `
+          // Update the last marker element to include badge
+          const lastMarker = markerElements[markerElements.length - 1]
+          if (lastMarker) {
+            lastMarker.badgeElement = iconBadge
+            lastMarker.badgeSvgElement = badgeSvgImg
+            lastMarker.baseSizes.badge = 18
+            lastMarker.baseSizes.fontSize = 9
+            if (isSvgUrl) {
+              lastMarker.baseSizes.badgeSvgIcon = 10
+            }
+          }
           horizontalWrapper.appendChild(iconBadge)
         }
       } else {
@@ -432,10 +603,38 @@ export default function RouteMap({
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           `
           container.appendChild(numberCircle)
+          
+          // Store for zoom scaling
+          markerElements.push({
+            type: 'waypoint-no-image',
+            mainElement: numberCircle,
+            baseSizes: { main: 36, fontSize: 16 }
+          })
         } else if (waypointDisplayMode === 'icons' && waypoint.categoryIcon) {
           // Show category icon instead of number
           const iconCircle = document.createElement('div')
-          iconCircle.innerHTML = `<i class="fa-solid ${waypoint.categoryIcon}"></i>`
+          
+          // Check if categoryIcon is a URL (SVG file) or FontAwesome class
+          const isSvgUrl = waypoint.categoryIcon.startsWith('http')
+          let svgImg: HTMLImageElement | undefined
+          
+          if (isSvgUrl) {
+            // Use SVG file as img
+            const imgEl = document.createElement('img')
+            imgEl.src = waypoint.categoryIcon
+            imgEl.alt = 'Category icon'
+            imgEl.style.cssText = `
+              width: 16px;
+              height: 16px;
+              filter: brightness(0) invert(1);
+            `
+            iconCircle.appendChild(imgEl)
+            svgImg = imgEl
+          } else {
+            // Use FontAwesome icon
+            iconCircle.innerHTML = `<i class="fa-solid ${waypoint.categoryIcon}"></i>`
+          }
+          
           iconCircle.style.cssText = `
             width: 36px;
             height: 36px;
@@ -450,6 +649,18 @@ export default function RouteMap({
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           `
           container.appendChild(iconCircle)
+          
+          // Store for zoom scaling
+          markerElements.push({
+            type: 'waypoint-no-image',
+            mainElement: iconCircle,
+            svgElement: svgImg,
+            baseSizes: { 
+              main: 36, 
+              fontSize: 16,
+              svgIcon: isSvgUrl ? 16 : undefined
+            }
+          })
         }
       }
 
@@ -564,6 +775,14 @@ export default function RouteMap({
       
       markersRef.current.push(marker)
     })
+
+    // Apply initial zoom scaling to all markers
+    handleZoomChange()
+
+    // Listen to zoom changes globally for marker scaling
+    if (map.current) {
+      map.current.on('zoom', handleZoomChange)
+    }
 
     // Fetch and draw route in three segments with different styling
     const fetchRoute = async () => {
@@ -1168,7 +1387,14 @@ export default function RouteMap({
     }
 
     fetchRoute()
-  }, [mapLoaded, startLocation, waypoints, mode, waypointPois, onPoiSelect, routeGeometrySource, routeGeometryJson])
+    
+    // Cleanup zoom listener
+    return () => {
+      if (map.current) {
+        map.current.off('zoom', handleZoomChange)
+      }
+    }
+  }, [mapLoaded, startLocation, waypoints, mode, waypointPois, onPoiSelect, routeGeometrySource, routeGeometryJson, waypointDisplayMode])
 
   // Separate effect for handling zoom-based visibility of time badges
   useEffect(() => {
@@ -1176,6 +1402,7 @@ export default function RouteMap({
 
     const updateTimeBadgesVisibility = () => {
       const zoom = map.current?.getZoom() || 0
+      console.log(`⏱️ Time badges visibility check | Zoom: ${zoom.toFixed(2)} | Visible: ${zoom >= 14}`)
       
       timeBadgeElementsRef.current.forEach(badge => {
         if (zoom >= 14) {

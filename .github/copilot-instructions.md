@@ -106,12 +106,55 @@ NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...  # .env.local
 - `poiCategory` (select) - For filtering
 - `poiIcon` (text) - Emoji for map markers
 
-**Components:**
-- `MapboxMap.tsx` - Full-screen modal with POI markers, popups, category filters
-- `MapRoute.tsx` - Route visualization from project location to POIs
-- `StorySection.tsx` - Integrates map trigger and modal
+**Map Components:**
+- `src/components/MapboxMap.tsx` - Used in Story pages (via StorySection.tsx)
+- `src/components/route/RouteMap.tsx` - Used in Route pages (via RouteContentWrapper.tsx)
+- `src/components/route/RoutePreviewMap.tsx` - Route preview thumbnails
+- `src/components/route/RouteMapOverlay.tsx` - Overlay for route map
+- `src/components/MapRoute.tsx` - Route visualization helper
+
+### ⚠️ CRITICAL: Map Configuration Changes
+
+**When making map configuration changes (style, filters, layers), update ALL map components:**
+
+1. **MapboxMap.tsx** - Story/POI maps
+2. **route/RouteMap.tsx** - Full route maps
+3. **route/RoutePreviewMap.tsx** - Route preview thumbnails
+4. **route/RouteMapOverlay.tsx** - Route overlays
+
+**Common changes that need syncing:**
+- Mapbox style (e.g., `outdoors-v12`, `streets-v12`, `light-v11`)
+- POI/label layer filtering (hiding Mapbox built-in symbols)
+- Zoom levels and bounds
+- Map controls and interactions
+
+**Example workflow:**
+```bash
+# 1. Change map style in MapboxMap.tsx
+# 2. Apply same change to RouteMap.tsx
+# 3. Apply same change to RoutePreviewMap.tsx
+# 4. Apply same change to RouteMapOverlay.tsx
+# 5. Test all map types (story maps, route maps, previews)
+```
 
 ## 🎨 Code Conventions
+
+### ⚠️ CRITICAL: Work Style Preferences
+
+**Andreas prefers thorough research and planning over speed:**
+- ✅ **Use "thinking mode" extensively** - think through problems before responding
+- ✅ **Research thoroughly** - search documentation, check multiple sources, investigate options
+- ✅ **Plan before implementing** - understand the full scope and implications
+- ✅ **Quality over speed** - take time to find the right solution
+- ❌ **Don't rush to answers** - it's better to be thorough than fast
+- ❌ **Don't make assumptions** - verify and investigate first
+
+**When facing a problem:**
+1. Use the `think` tool to analyze and plan
+2. Search relevant documentation and examples (web search, GitHub, etc.)
+3. Check all related files and components
+4. Consider edge cases and implications
+5. Only then provide a well-researched solution
 
 ### ⚠️ CRITICAL: Vibe Coder Preferences - NO CODE EVER
 **Andreas is a vibe coder** - NEVER show code examples:
@@ -180,7 +223,49 @@ npm run watch:backend    # Auto-sync on file changes
 npm run analyze          # Bundle size analysis (ANALYZE=true)
 ```
 
-## 💡 Project-Specific Patterns
+## � Key Features & Mechanics
+
+### Dynamic POI Marker Scaling
+
+**Implemented in:** `MapboxMap.tsx` and `RouteMap.tsx`
+
+POI markers scale progressively based on zoom level to maintain visibility and usability:
+
+**Zoom-based Scale Factors:**
+- **Zoom < 15:** Scale Factor = 1.0x (normal size)
+- **Zoom 15-16:** Scale Factor = 2.0x (double size)
+- **Zoom ≥ 16:** Scale Factor = 3.0x (triple size)
+
+**Base Sizes (before scaling):**
+- **Major POI:** 40px marker, 3px border, 20px icon
+- **Minor POI:** 30px marker, 2px border, 16px icon, 0.85 opacity
+
+**What scales:**
+- Marker size (width/height)
+- Border width
+- Icon font size
+
+**Implementation details:**
+- Triggered on every zoom event via `map.on('zoom', handleZoomChange)`
+- Stores base sizes for each marker element
+- Applies scaling multiplicatively to maintain proportions
+- Console logs: `🎯 MapboxMap POI scaling | Zoom: X.XX | ScaleFactor: X | Markers: X`
+
+**⚠️ CRITICAL:** When modifying zoom-based scaling, update BOTH:
+1. `MapboxMap.tsx` - Story/POI maps
+2. `RouteMap.tsx` - Route maps (also handles waypoint badges)
+
+### Mini-POI Toggle
+
+**Implemented in:** `MapboxMap.tsx`
+
+Users can toggle visibility of Minor POIs (those with `poiTypes` slug `'minor'`):
+- State stored in `localStorage` as `'showMiniPois'`
+- Filter button in map UI
+- Minor POIs have reduced opacity (0.85) when visible
+- Major POIs always visible
+
+## �💡 Project-Specific Patterns
 
 **ACF Repeater Pattern** (Story Sections):
 ```typescript

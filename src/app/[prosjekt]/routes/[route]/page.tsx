@@ -123,8 +123,6 @@ export default async function RouteStoryPage({ params }: RouteStoryPageProps) {
               }
             : undefined
         }
-        mapMinZoom={fields.mapMinZoom}
-        mapMaxZoom={fields.mapMaxZoom}
         waypointDisplayMode={fields.waypointDisplayMode}
       />
 
